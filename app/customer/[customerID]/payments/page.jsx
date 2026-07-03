@@ -393,7 +393,7 @@ return (
      return   (
     <div
       key={index}
-      className="bg-white rounded-xl shadow border p-4"
+      className="bg-white rounded-xl shadow border p-4" 
     >
       <div className="flex justify-between items-center mb-3">
         <h3 className="font-bold text-lg">
@@ -414,6 +414,22 @@ return (
       </div>
 
       <div className="space-y-3">
+
+<div>
+  <label className="text-sm font-medium">Due Date</label>
+  <input
+    type="date"
+    readOnly
+    disabled={!canEdit}
+    value={payment.dueDate?.split("T")[0] || ""}
+  
+    className={`w-full rounded-lg border p-2 ${
+      !canEdit
+        ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+        : "bg-white border-slate-300"
+    }`}
+  />
+</div>
 
       {/* Paid Date */}
 <div>
