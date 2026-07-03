@@ -29,7 +29,7 @@ export default function ForgotPasswordPage() {
       if (res?.ok) {
         toast.success(data.message);
       } else {
-        toast.error(data.message);
+        toast.error(data.error||"Error");
       }
     } catch (error) {
       toast.error("Something went wrong");

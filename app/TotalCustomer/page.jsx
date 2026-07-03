@@ -278,28 +278,35 @@ if (status === "loading" || loading){
       #{customer.customerId}
     </h3>
 
-    <div className="flex gap-2">
-      <span className="bg-blue-400 text-white px-3 py-1 rounded-md text-sm">
-  EMI{" "}
-  {customer.emiDate == 1
-    ? "1st"
-    : customer.emiDate == 11
-    ? "11th"
-    : customer.emiDate == 21
-    ? "21st"
-    : customer.emiDate}
-</span>
+  <div className="flex gap-2 flex-wrap">
+  <span className="bg-blue-400 text-white px-3 py-1 rounded-md text-sm">
+    EMI{" "}
+    {customer.emiDate == 1
+      ? "1st"
+      : customer.emiDate == 11
+      ? "11th"
+      : customer.emiDate == 21
+      ? "21st"
+      : customer.emiDate}
+  </span>
 
-      {customer.status === "Completed" ? (
-        <span className="bg-yellow-500 text-white px-3 py-1 rounded-md text-sm font-semibold">
-          ✅ Completed
-        </span>
-      ) : (
-        <span className="bg-green-500 text-white px-3 py-1 rounded-md text-sm font-semibold">
-          Active
-        </span>
-      )}
-    </div>
+  {customer.status === "Completed" ? (
+    <span className="bg-yellow-500 text-white px-3 py-1 rounded-md text-sm font-semibold">
+      ✅ Completed
+    </span>
+  ) : (
+    <span className="bg-green-500 text-white px-3 py-1 rounded-md text-sm font-semibold">
+      Active
+    </span>
+  )}
+
+  {isAdmin && customer.removeMark && (
+    <span className="bg-red-500 text-white px-2 py-1 rounded-md text-sm font-semibold">
+      🚫 Deleted
+    </span>
+  )}
+</div>
+
   </div>
 
   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-slate-700">

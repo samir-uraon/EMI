@@ -271,6 +271,21 @@ return (
       <span className="font-semibold">EMI Calculater</span>
     </button>
 
+      <button
+  onClick={() => router.push("/admin/collection")}
+  className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 p-5 text-white shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:from-blue-700 hover:to-blue-800 active:scale-95"
+>
+<span className="text-4xl">💰</span>
+
+  <span className="text-lg font-semibold">
+    Collection
+  </span>
+
+  <span className="text-xs text-blue-100">
+    Cash & UPI Summary
+  </span>
+</button>
+
   </div>
 </div>
 

@@ -175,7 +175,7 @@ if (status === "loading" || loading) {
               name="mobile"
               value={form.mobile}
               onChange={handleChange}
-              maxLength={10}
+              minLength={10}
               className="w-full border rounded-lg p-2 mt-1 text-black"
               onKeyDown={handleKeyDown}
               required

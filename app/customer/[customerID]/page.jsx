@@ -87,6 +87,53 @@ const handleRemoveLoan = async () => {
   }
 };
 
+
+const handleGeneratePDF = async () => {
+  const formatted = new Date(loan?.createdAt).toLocaleDateString("en-GB");
+
+    const customer = {
+      name: loan?.customerName,
+      date: formatted,
+      product: loan?.productName,
+      price: loan?.productPrice,
+      downPayment:loan?.downPayment,
+      balance: loan?.financeAmount,
+      emiAmount:loan?.emiAmount,
+      numberOfEmi: loan?.numberOfEmi,
+
+    };
+
+    try {
+      const res = await fetch("/api/pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(customer),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to generate PDF");
+      }
+
+      const blob = await res.blob();
+
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "EMI.pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert("Unable to generate PDF");
+    }
+  };
+
 if (status === "loading" || loading) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -137,10 +184,17 @@ if (status === "loading" || loading) {
 
         
           {isAdmin && (
-            <button className="mt-2 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg transition"
+            <div className="flex flex-col gap-2 mt-2 w-50">
+            <button className="mt-2 bg-green-600 hover:bg-green-600 text-white py-2 px-2 rounded-lg transition text-md"
               onClick={() => router.push(`/admin/${loan?.salesmanID}/salesmen`)}>
               SalesMen : {loan?.salesmanName}
             </button>
+      
+            <button className="mt-2 bg-slate-500 hover:bg-slate-600 text-white py-2 px-2 rounded-lg transition text-md"
+              onClick={() => handleGeneratePDF()}>
+              Generate Form 
+            </button>
+            </div>
           )}
         </div>
 
@@ -273,11 +327,28 @@ if (status === "loading" || loading) {
 
         <div className="bg-white rounded-xl shadow p-6">
 
-<div className="flex justify-between items-center gap-2 border-b pb-2 mb-4">
-          <h2 className="text-xl font-bold">
-            💰 Loan Information
-          </h2>
-          <p className="text-md font-bold bg-blue-400 px-2.5 rounded-2xl"><span className={`font-bold ${loan?.status !== "Completed" ? "text-white" : "text-black"}`}>{loan?.status}</span></p>
+<div className="flex justify-between items-center border-b pb-3 mb-4">
+  <h2 className="text-xl font-bold flex items-center gap-2">
+    💰 Loan Information
+  </h2>
+
+  <div className="flex items-center gap-2">
+    <span
+      className={`px-3 py-1 rounded-full text-sm font-semibold ${
+        loan?.status === "Completed"
+          ? "bg-yellow-100 text-yellow-800"
+          : "bg-green-100 text-green-800"
+      }`}
+    >
+      {loan?.status}
+    </span>
+
+    {isAdmin && loan?.removeMark && (
+      <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+        🚫 Deleted
+      </span>
+    )}
+  </div>
 </div>
           <div className="grid md:grid-cols-2 gap-4">
 
@@ -299,6 +370,7 @@ if (status === "loading" || loading) {
     {loan?.payments[loan?.payments.length - 1]?.dueDate?.split("T")[0].split("-").reverse().join("-")}
   </p>
 )}
+
           </div>
 
         </div>

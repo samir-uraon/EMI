@@ -39,11 +39,11 @@ useEffect(() => {
 
 
 
-  useEffect(() => {
+
   const fetchUser = async () => {
     try {
       setLoading(true);
-
+alert(isAdmin)
       const res = await fetch(isAdmin?"/api/admin/me":"/api/me");
       
             
@@ -55,16 +55,27 @@ useEffect(() => {
       setUser(data.user);
       setLoans(data.loans)
     } catch (error) {
-      await signOut({ callbackUrl: "/login" });
-        return;
+      //await signOut({ callbackUrl: "/login" });
+      //  return;
 
     } finally {
       setLoading(false);
     }
   };
 
-  fetchUser();
-}, []);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+        if(isAdmin){
+    router.push("/admin/dashboard")
+    return
+  }
+      fetchUser();
+    }
+  }, [status]);
+
+
+
 
 
 const activeLoans = loans?.filter((loan) => loan.status === "Active");

@@ -150,7 +150,7 @@ if(identifier==="admin@Goldy"){
 
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.message);
+        toast.error(data.message||"error");
         return;
       }
 

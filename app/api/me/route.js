@@ -106,15 +106,18 @@ export async function POST(req) {
 
     // Remove loan id from user's loan array
     await db.collection("users").updateOne(
-      {
-        email: session.user.email,
-      },
-      {
-        $pull: {
-          loans: loan._id,
-        },
-      }
-    );
+  {
+    email: session.user.email,
+  },
+  {
+    $pull: {
+      loans: loan._id,
+    },
+    $set: {
+      removeMark: true,
+    },
+  }
+);
 
     return Response.json({
       success: true,
