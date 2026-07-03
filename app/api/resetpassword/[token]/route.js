@@ -65,9 +65,9 @@ const user = await usersCollection.findOne({
   }
 }
 
-export async function GET(req) {
+export async function GET(req,{params}) {
   try {
-    const token = req.nextUrl.searchParams.get("token");
+    const {token}  = await params;
 
     if (!token) {
       return Response.json(
@@ -85,6 +85,8 @@ export async function GET(req) {
       resetPasswordToken: token,
       resetPasswordExpire: { $gt: new Date() },
     });
+    console.log(user);
+    
 
     if (!user) {
       return Response.json(

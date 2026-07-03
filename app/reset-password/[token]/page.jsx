@@ -1,21 +1,50 @@
 "use client";
 
-import { useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { Eye, EyeOff, Lock } from "lucide-react";
 import toast from "react-hot-toast";
 
 export default function ResetPasswordPage() {
-  const searchParams = useSearchParams();
+   
   const router = useRouter();
 
-  const token = searchParams.get("token");
+ const { token } = useParams();
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+useEffect(() => {
+    const verifyToken = async () => {
+      if (!token) {
+        toast.error("Invalid or expired reset link.");
+        router.replace("/login");
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/resetpassword/${token}`, {
+          method: "GET",
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          toast.error(data.message || "Invalid or expired reset link.");
+          router.replace("/login");
+        }
+      } catch (error) {
+        toast.error("Server error. Please try again.");
+        router.replace("/login");
+      }
+    }
+
+    verifyToken();
+
+    },[token, router]);
+
 
   const handleReset = async (e) => {
     e.preventDefault();

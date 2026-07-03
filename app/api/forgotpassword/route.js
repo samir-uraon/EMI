@@ -43,7 +43,7 @@ await db.collection("users").updateOne(
   }
 );
 		
-  const resetURL = `${process.env.NEXT_PUBLIC_BASE_URL}/reset-password?token=${resetToken}`;
+  const resetURL = `${process.env.NEXT_PUBLIC_BASE_URL}/reset-password/${resetToken}`;
 
       const html = `
       <div style="font-family:Arial;padding:20px">
