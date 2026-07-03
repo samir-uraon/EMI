@@ -39,10 +39,12 @@ const fetchLoan = async () => {
 
     if (!res.ok) {
       throw new Error(data.message || "Failed to fetch loan");
+      
     }
 
     setLoan(data.loan);
   } catch (err) {
+    router.push("/TotalCustomer");
     toast.error(err.message || "Failed to fetch loan details");
   } finally {
     setLoading(false);
@@ -56,7 +58,7 @@ const handleRemoveLoan = async () => {
   try {
     setRemoving(true);
 
-    const res = await fetch("/api/me", {
+    const res = await fetch(isAdmin?"/api/admin/me":"/api/me", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -70,13 +72,15 @@ const handleRemoveLoan = async () => {
     const data = await res.json();
 
     if (!res.ok) {
-      throw new Error(data.message || "Failed to remove loan");
+      isAdmin?router.push("/admin/dashboard"):router.push("/");
+       
     }
 
     toast.success("Loan removed successfully");
     router.push("/TotalCustomer");
   } catch (error) {
-    router.push("/TotalCustomer");
+          isAdmin?router.push("/admin/dashboard"):router.push("/");
+
     toast.error(error.message);
   } finally {
     setRemoving(false);

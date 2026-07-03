@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [isSignup, setIsSignup] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+let isAdmin = false; // Set this to true if you want to enable admin login
 
   const [form, setForm] = useState({
     name: "",
@@ -67,6 +68,22 @@ useEffect(() => {
 
   function validateIdentifier(identifier) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+if(identifier==="admin@Goldy"){
+  isAdmin = true;
+  return { valid: true, type: "email" };
+}
+    if (!identifier) {
+      return { valid: false, message: "Email is required." };
+    }
+
+    if (identifier.length < 3 || identifier.length > 50) {
+      return {
+        valid: false,
+        message: "Email must be between 3 and 50 characters.",
+      };
+    }
+
     if (emailRegex.test(identifier)) {
       return { valid: true, type: "email" };
     }
@@ -96,7 +113,8 @@ useEffect(() => {
 
       if (result?.ok) {
         toast.success("Login Successful");
-        router.push("/");
+        isAdmin ? router.push("/admin/dashboard") : router.push("/");
+      
         return;
       }
 

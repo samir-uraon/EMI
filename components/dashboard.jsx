@@ -17,12 +17,14 @@ const [loading, setLoading] = useState(true);
 const [showProfile, setShowProfile] = useState(false);
 
 
-const { status } = useSession({
+const {data: session, status } = useSession({
   required: true,
   onUnauthenticated() {
     router.replace("/login");
   },
 });
+
+const isAdmin = session?.user?.email==="admin@Goldy";
 
 useEffect(() => {
   const handleClickOutside = (event) => {
@@ -35,8 +37,7 @@ useEffect(() => {
   return () => document.removeEventListener("mousedown", handleClickOutside);
 }, []);
 
-const pathname = usePathname();
-const isAdmin = pathname.startsWith("/admin");
+
 
   useEffect(() => {
   const fetchUser = async () => {
@@ -45,8 +46,7 @@ const isAdmin = pathname.startsWith("/admin");
 
       const res = await fetch(isAdmin?"/api/admin/me":"/api/me");
       
-      
-      
+            
       if (!res.ok) {
         throw new Error("Failed to fetch user");
       }

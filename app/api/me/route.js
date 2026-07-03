@@ -111,7 +111,7 @@ export async function POST(req) {
       },
       {
         $pull: {
-          loan: loan._id,
+          loans: loan._id,
         },
       }
     );
