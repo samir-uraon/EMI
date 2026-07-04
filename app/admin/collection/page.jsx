@@ -280,55 +280,137 @@ const CollectionDashboard = () => {
         </div>
       </div>
 
-      {/* Dynamic Tabular Ledger Display Grid */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-200 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                <th className="py-3 px-6">Customer Id</th>
-                <th className="py-3 px-6">Name</th>
-                <th className="py-3 px-6">Mobile</th>
-                <th className="py-3 px-6">EMI</th>
-                <th className="py-3 px-6">Paid Date</th>
-                <th className="py-3 px-6">Mode</th>
-                <th className="py-3 px-6">Due Date</th>
-                <th className="py-3 px-6 text-center">SalesMen</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 text-sm">
-              {filteredTransactions.length > 0 ? (
-                filteredTransactions.map((row,i) => (
-                  <tr key={i} className="hover:bg-slate-100 transition-colors cursor-pointer"
-																		onClick={()=>{router.push(`/customer/${row.customerId}`)}}>
-                    <td className="py-4 px-6 font-medium text-blue-600">{row.customerId}</td>
-                    <td className="py-4 px-6 font-semibold text-gray-900">{row.customerName}</td>
-                    <td className="py-4 px-6 text-gray-500">{row.mobile}</td>
-                    <td className="py-4 px-6 font-medium text-gray-900">₹{row.amount?.toLocaleString('en-IN')}</td>
-                    <td className="py-4 px-6 text-gray-600 font-medium">{row.paidDate}</td>
-                    <td className="py-4 px-6">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                        row.paymentMode === 'Cash' ? 'bg-amber-100 text-amber-800' :
-                        row.paymentMode === 'UPI' ? 'bg-indigo-100 text-indigo-800' : 'text-gray-400'
-                      }`}>
-                        {row.paymentMode}
-                      </span>
-                    </td>
-           <td className="py-4 px-6 text-gray-600 font-medium">{row.dueDate}</td>
-                    <td className="py-4 px-6 font-semibold text-gray-900">{row.salesmanName}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="8" className="py-8 text-center text-gray-400 font-medium">
-                    No records found matching your selection.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {/* Desktop Table */}
+<div className="hidden md:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+  <div className="overflow-x-auto">
+    <table className="w-full text-left border-collapse">
+      <thead>
+        <tr className="bg-gray-200 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase">
+          <th className="py-3 px-6">Customer Id</th>
+          <th className="py-3 px-6">Name</th>
+          <th className="py-3 px-6">Mobile</th>
+          <th className="py-3 px-6">EMI</th>
+          <th className="py-3 px-6">Paid Date</th>
+          <th className="py-3 px-6">Mode</th>
+          <th className="py-3 px-6">Due Date</th>
+          <th className="py-3 px-6">Salesman</th>
+        </tr>
+      </thead>
+
+      <tbody className="divide-y divide-gray-200 text-sm">
+        {filteredTransactions.length > 0 ? (
+          filteredTransactions.map((row, i) => (
+            <tr
+              key={i}
+              onClick={() => router.push(`/customer/${row.customerId}`)}
+              className="hover:bg-slate-100 cursor-pointer"
+            >
+              <td className="py-4 px-6 text-blue-600 font-semibold">
+                {row.customerId}
+              </td>
+              <td className="py-4 px-6">{row.customerName}</td>
+              <td className="py-4 px-6">{row.mobile}</td>
+              <td className="py-4 px-6">
+                ₹{row.amount?.toLocaleString("en-IN")}
+              </td>
+              <td className="py-4 px-6">{row.paidDate}</td>
+              <td className="py-4 px-6">
+                <span
+                  className={`px-2 py-1 rounded text-xs font-semibold ${
+                    row.paymentMode === "Cash"
+                      ? "bg-amber-100 text-amber-800"
+                      : row.paymentMode === "UPI"
+                      ? "bg-indigo-100 text-indigo-800"
+                      : "bg-gray-100 text-gray-500"
+                  }`}
+                >
+                  {row.paymentMode}
+                </span>
+              </td>
+              <td className="py-4 px-6">{row.dueDate}</td>
+              <td className="py-4 px-6">{row.salesmanName}</td>
+            </tr>
+          ))
+        ) : (
+          <tr>
+            <td colSpan={8} className="py-8 text-center text-gray-500">
+              No records found.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{/* Mobile Cards */}
+<div className="md:hidden space-y-4">
+  {filteredTransactions.length > 0 ? (
+    filteredTransactions.map((row, i) => (
+      <div
+        key={i}
+        onClick={() => router.push(`/customer/${row.customerId}`)}
+        className="bg-white rounded-xl shadow border p-4 active:scale-[0.98] transition cursor-pointer"
+      >
+        <div className="flex justify-between items-start mb-3">
+          <div>
+            <h3 className="font-semibold text-gray-900">
+              {row.customerName}
+            </h3>
+            <p className="text-xs text-blue-600">
+              {row.customerId}
+            </p>
+          </div>
+
+          <span
+            className={`px-2 py-1 rounded text-xs font-semibold ${
+              row.paymentMode === "Cash"
+                ? "bg-amber-100 text-amber-800"
+                : row.paymentMode === "UPI"
+                ? "bg-indigo-100 text-indigo-800"
+                : "bg-gray-100 text-gray-500"
+            }`}
+          >
+            {row.paymentMode}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-y-2 text-sm">
+          <div>
+            <p className="text-gray-500">Mobile</p>
+            <p className="font-medium">{row.mobile}</p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">EMI</p>
+            <p className="font-bold text-green-600">
+              ₹{row.amount?.toLocaleString("en-IN")}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Paid Date</p>
+            <p>{row.paidDate}</p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Due Date</p>
+            <p>{row.dueDate}</p>
+          </div>
+
+          <div className="col-span-2">
+            <p className="text-gray-500">Salesman</p>
+            <p className="font-medium">{row.salesmanName}</p>
+          </div>
         </div>
       </div>
+    ))
+  ) : (
+    <div className="bg-white rounded-xl p-8 text-center text-gray-500 shadow">
+      No records found matching your selection.
+    </div>
+  )}
+</div>
 
     </div>
   );
