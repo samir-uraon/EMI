@@ -24,6 +24,7 @@ export async function GET() {
     
 
     customers.forEach((customer) => {
+        if (customer.status !== "Active" || customer.removeMark) return;
   // Total Loan Amount
   totalLoanAmount += Number(customer.totalLoanAmount || 0);
 
@@ -34,14 +35,14 @@ export async function GET() {
 
 
   // Active Loans
-  if (customer.status === "Active") {
+  if (customer.status === "Active" && !customer.removeMark) {
     activeLoans++;
   }
 
 
   
   customers.forEach((customer) => {
-  if (customer.status !== "Active") return;
+  if (customer.status !== "Active" || customer.removeMark) return;
 
   const nextPending = customer.payments?.find(
     (payment) => payment.status === "Pending"
@@ -65,6 +66,7 @@ let monthlyCollection = 0;
 
 
 customers.forEach((customer) => {
+    if (customer.status !== "Active" || customer.removeMark) return;
   customer.payments?.forEach((payment) => {
     if (!payment.paidDate) return;
 
@@ -81,7 +83,7 @@ customers.forEach((customer) => {
 
 
 customers.forEach((customer) => {
-  //if (customer.status !== "Active") return;
+  if (customer.status !== "Active" || customer.removeMark) return;
     customer.payments?.forEach((payment) => {
     if (!payment.finePaid) return;
 
@@ -92,6 +94,7 @@ customers.forEach((customer) => {
 
   // Monthly EMI
   customers.forEach((customer) => {
+    if (customer.status !== "Active" || customer.removeMark) return;
   customer.payments?.forEach((payment) => {
     if (!payment.dueDate) return;
 

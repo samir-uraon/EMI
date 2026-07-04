@@ -1,6 +1,7 @@
 "use client";
 
 import ScrollUp from "@/components/ScrollUp";
+import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -13,6 +14,15 @@ export default function LoansPage() {
   useEffect(() => {
     fetchLoans();
   }, []);
+
+  const { data: session, status } = useSession({
+  required: true,
+  onUnauthenticated() {
+    router.replace("/login");
+  },
+});
+
+const isAdmin = session?.user?.email==="admin@Goldy";
 
   const fetchLoans = async () => {
     try {
@@ -29,7 +39,7 @@ const res = await fetch(`/api/admin/${salesmenid}`);
   return (
     <div className="p-10 text-md	text-black min-h-screen bg-slate-100">
 					 <button
-      onClick={() => router.back()}
+    onClick={() => router.push(isAdmin?"/admin/salesmen":"/")}
       className="mb-4 flex items-center gap-2 shadow bg-slate-200 hover:bg-slate-300 text-gray-700 px-4 py-2 rounded-lg transition"
     >
       ← Back

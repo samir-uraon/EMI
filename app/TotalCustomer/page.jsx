@@ -125,7 +125,7 @@ if (status === "loading" || loading){
 
   {/* Back Button */}
   <button
-    onClick={() => router.back()}
+    onClick={() => router.push(isAdmin?"/admin/dashboard":"/")}
     className="mb-5 bg-white border shadow border-slate-300 hover:bg-slate-100 text-slate-700 px-4 py-2 rounded-lg shadow-sm transition w-full sm:w-fit"
   >
     ← Back

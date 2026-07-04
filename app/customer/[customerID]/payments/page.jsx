@@ -195,7 +195,7 @@ return (
 
   {/* Back Button */}
     <button
-      onClick={() => router.back()}
+      onClick={() => router.push("/TotalCustomer")}
       className=" flex items-center gap-2 shadow bg-slate-200 hover:bg-slate-300 text-gray-700 px-4 py-2 rounded-lg transition"
     >
       ← Back

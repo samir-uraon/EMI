@@ -18,12 +18,13 @@ const [loading, setLoading] = useState(true);
 const [showProfile, setShowProfile] = useState(false);
 
 
-const { status } = useSession({
+const {data:session, status } = useSession({
 		required: true,
 		onUnauthenticated() {
 				router.replace("/login");
 		},
 });
+const isAdmin = session?.user?.email==="admin@Goldy";
 
 useEffect(() => {
 		const handleClickOutside = (event) => {
@@ -213,7 +214,7 @@ if (status === "loading" || loading || !user) {
 				<div className="px-2  flex justify-between items-center relative">
       {/* Back Button */}
     <button
-      onClick={() => router.back()}
+    onClick={() => router.push(isAdmin?"/admin/salesmen":"/")}
       className="flex items-center gap-2 shadow bg-slate-200 hover:bg-slate-300 text-gray-700 px-4 py-2 rounded-lg transition"
     >
       ← Back

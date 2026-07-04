@@ -133,6 +133,7 @@ for (let i = 0; i < numberOfEmi; i++) {
 
     fine: 200,
     finePaid: false,
+    removeMark:false
   });
 }
   

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Search, User, Phone, CreditCard } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 export default function UserSearchPage() {
   const [search, setSearch] = useState("");
@@ -14,6 +15,16 @@ const router = useRouter();
       fetchUsers();
 
   }, [search]);
+
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      router.replace("/login");
+    },
+  });
+  
+  const isAdmin = session?.user?.email==="admin@Goldy";
+
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -43,7 +54,7 @@ const router = useRouter();
       <div className="max-w-6xl mx-auto">
           {/* Back Button */}
     <button
-      onClick={() => router.back()}
+  onClick={() => router.push(isAdmin?"/admin/dashboard":"/")}
       className="mb-4 flex items-center shadow gap-2 bg-slate-200 hover:bg-slate-300 text-gray-700 px-4 py-2 rounded-lg transition"
     >
       ← Back

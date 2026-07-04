@@ -108,7 +108,7 @@ const CollectionDashboard = () => {
       
       {/* Back Navigation Bar */}
       <button
-        onClick={() => router.back()}
+    onClick={() => router.push(isAdmin?"/admin/dashboard":"/")}
         className="mb-6 flex items-center shadow-xs gap-2 bg-slate-200 hover:bg-slate-300 text-gray-700 px-4 py-2 rounded-lg transition"
       >
         ← Back

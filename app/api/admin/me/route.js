@@ -23,10 +23,10 @@ export async function GET() {
 				let loans = [];
 
 		
-						loans = await db
-								.collection("loans")
-								.find({})
-								.toArray();
+		loans = await db
+  .collection("loans")
+  .find({})
+  .toArray();
 
     const salesmen = await db.collection("users").find({}).toArray();
 				
@@ -91,11 +91,11 @@ export async function POST(req) {
 				// Remove loan id from user's loan array
 				await db.collection("users").updateOne(
 						{
-								email: session.user.email,
+							_id:new ObjectId(loan.salesmanID),
 						},
 						{
 								$pull: {
-										loan: loan._id,
+										loans: loan._id,
 								},
 						}
 				);

@@ -26,6 +26,9 @@ export async function GET(req,{params}) {
 						{ projection: { password: 0 } }
 				);
 
+
+				
+
 				if (!user) {
 
 						return NextResponse.json(
@@ -36,16 +39,19 @@ export async function GET(req,{params}) {
 
 				let loans = [];
 
-				if (user.loans?.length) {
-						loans = await db
-								.collection("loans")
-								.find({
-										_id: {
-												$in: user.loans.map((id) => new ObjectId(id)),
-										},
-								})
-								.toArray();
-				}
+			if (user.loans?.length) {
+  loans = await db
+    .collection("loans")
+    .find({
+      _id: {
+        $in: user.loans.map((id) => new ObjectId(id)),
+      },
+      removeMark: { $ne: true },
+    })
+    .toArray();
+}
+
+
 
 				return NextResponse.json({
 						success: true,

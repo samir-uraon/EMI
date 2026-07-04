@@ -206,7 +206,7 @@ const handleKeyDown = (e) => {
 
   {/* Back Button */}
     <button
-      onClick={() => router.push("/")}
+      onClick={() =>{isAdmin?router.push("/admin/dashboard"):router.push("/")}}
       className=" flex items-center gap-2 bg-slate-200 hover:bg-slate-300 text-gray-700 px-4 py-2 rounded-lg transition"
     >
       ← Back
