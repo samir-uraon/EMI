@@ -43,7 +43,7 @@ useEffect(() => {
   const fetchUser = async () => {
     try {
       setLoading(true);
-alert(isAdmin)
+
       const res = await fetch(isAdmin?"/api/admin/me":"/api/me");
       
             
