@@ -278,7 +278,7 @@ if (status === "loading" || loading){
       #{customer.customerId}
     </h3>
 
-  <div className="flex gap-2 flex-wrap">
+  <div className="flex gap-2 flex-wrap pl-4">
   <span className="bg-blue-400 text-white px-3 py-1 rounded-md text-sm">
     EMI{" "}
     {customer.emiDate == 1
@@ -292,7 +292,7 @@ if (status === "loading" || loading){
 
   {customer.status === "Completed" ? (
     <span className="bg-yellow-500 text-white px-3 py-1 rounded-md text-sm font-semibold">
-      ✅ Completed
+     Completed
     </span>
   ) : (
     <span className="bg-green-500 text-white px-3 py-1 rounded-md text-sm font-semibold">
@@ -300,9 +300,9 @@ if (status === "loading" || loading){
     </span>
   )}
 
-  {isAdmin && customer.removeMark && (
-    <span className="bg-red-500 text-white px-2 py-1 rounded-md text-sm font-semibold">
-      🚫 Deleted
+  {(isAdmin && customer.removeMark) && (
+    <span className="bg-red-300 text-white px-2 py-1 rounded-md text-sm font-semibold">
+     Deleted
     </span>
   )}
 </div>
