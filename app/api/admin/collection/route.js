@@ -28,7 +28,7 @@ export async function GET() {
     const client = await clientPromise;
     const db = client.db(process.env.MONGODB_DB);
 
-    const loans = await db.collection("loans").find({}).toArray();
+const loans = await db.collection("loans").find({ removeMark: { $ne: true } }).toArray();
 
     let cashAmount = 0;
     let upiAmount = 0;
@@ -43,9 +43,12 @@ export async function GET() {
         // Only Paid EMIs
         if (payment.status !== "Paid") return;
 
-        const amount =
-          Number(payment.amount || 0) +
-          Number(payment.fine || 0);
+      let amount =
+        Number(payment.amount || 0)
+
+        if(payment.finePaid){
+          amount+=payment.fine
+        }
 
         // Calculate totals
         if (payment.paymentMode === "Cash") {
@@ -96,12 +99,16 @@ const dates = ["1", "11", "21"].map((day) => {
   let upiCount = 0;
 
   dayLoans.forEach((loan) => {
+    
     (loan.payments || []).forEach((payment) => {
-      if (payment.status !== "Paid") return;
+      if (payment.status === "Pending") return;
 
-      const amount =
-        Number(payment.amount || 0) +
-        Number(payment.fine || 0);
+      let amount =
+        Number(payment.amount || 0)
+
+        if(payment.finePaid){
+          amount+=payment.fine
+        }
 
       if (payment.paymentMode === "Cash") {
         cashAmount += amount;

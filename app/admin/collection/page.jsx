@@ -50,6 +50,8 @@ const CollectionDashboard = () => {
       setLoading(true);
       const res = await fetch("/api/admin/collection");
       const data = await res.json();
+      console.log(data);
+      
 
       if (data.success) {
         setStats(data.stats || { cash: { amount: 0, count: 0 }, upi: { amount: 0, count: 0 } });
@@ -327,7 +329,8 @@ const CollectionDashboard = () => {
                   {row.paymentMode}
                 </span>
               </td>
-              <td className="py-4 px-6">{row.dueDate}</td>
+              <td className="py-4 px-6">
+        {row.dueDate?.split("T")[0]}</td>
               <td className="py-4 px-6">{row.salesmanName}</td>
             </tr>
           ))
@@ -395,7 +398,7 @@ const CollectionDashboard = () => {
 
           <div>
             <p className="text-gray-500">Due Date</p>
-            <p>{row.dueDate}</p>
+          <p>{row.dueDate?.split("T")[0]}</p>
           </div>
 
           <div className="col-span-2">

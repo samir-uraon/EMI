@@ -37,7 +37,22 @@ const { status } = useSession({
 });
 
   const handleChange = (e) => {
+
+     if (e.target.type === "file") {
+    const file = e.target.files[0];
+
+    if (file) {
+      const allowedTypes = ["image/png", "image/jpeg"];
+
+      if (!allowedTypes.includes(file.type)) {
+        alert("Only PNG, JPG, and JPEG files are allowed.");
+        e.target.value = "";
+        return;
+      }
+    }}
+
   const { name, value, files } = e.target;
+
 
   setForm((prev) => ({
     ...prev,
@@ -217,13 +232,13 @@ if (status === "loading" || loading) {
               Product Photo (Optional)
             </label>
             <input
-              type="file"
-              name="productPhoto"
-              accept="image/*"
-              onKeyDown={handleKeyDown}
-              onChange={handleChange}
-              className="w-full border rounded-lg p-2 mt-1 text-black"
-            />
+  type="file"
+  name="productPhoto"
+  accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+  onKeyDown={handleKeyDown}
+  onChange={handleChange}
+  className="w-full border rounded-lg p-2 mt-1 text-black"
+/>
           </div>
 
           {/* Address */}
@@ -295,18 +310,26 @@ if (status === "loading" || loading) {
           </div>
 
           {/* Number of EMI */}
-          <div>
-            <label className="font-medium">Number of EMI<span className="text-red-500">*</span></label>
-            <input
-              type="number"
-              name="numberOfEmi"
-              value={form.numberOfEmi}
-              onKeyDown={handleKeyDown}
-              onChange={handleChange}
-              className="w-full border rounded-lg p-2 mt-1 text-black"
-              required
-            />
-          </div>
+        <div>
+  <label className="font-medium">
+    Number of EMI <span className="text-red-500">*</span>
+  </label>
+
+  <select
+    name="numberOfEmi"
+    value={form.numberOfEmi}
+    onChange={handleChange}
+    className="w-full border rounded-lg p-2 mt-1 text-black"
+    required
+  >
+    <option value="">Select How Many</option>
+    {Array.from({ length: 12 }, (_, i) => (
+      <option key={i + 1} value={i + 1}>
+        {i + 1}
+      </option>
+    ))}
+  </select>
+</div>
 
   {/* EMI Date */}
           <div>
@@ -333,15 +356,14 @@ if (status === "loading" || loading) {
   </label>
 
   <input
-  onKeyDown={handleKeyDown}
-    type="file"
-    name="customerIdProof"
-    title="File"
-    accept="image/*"
-    onChange={handleChange}
-    className="w-full border rounded-lg p-2 mt-1 text-black"
-    required
-  />
+  type="file"
+  name="customerIdProof"
+  title="File"
+  accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+  onChange={handleChange}
+  className="w-full border rounded-lg p-2 mt-1 text-black"
+  required
+/>
 
   <p className="text-sm text-gray-500 mt-1">
     Upload Aadhaar Card, PAN Card, Voter ID, Driving License or Passport.
