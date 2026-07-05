@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../auth/[...nextauth]/route";  
- 
+import { ObjectId } from "mongodb";
 
 export async function GET(req, { params }) {
   try {
@@ -218,6 +218,100 @@ if (!hasLoan && !isAdmin) {
       {
         success: false,
         message: "Internal Server Error",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+export async function PUT(req, { params }) {
+  try {
+    const { customerID } =await params;
+    const body = await req.json();
+
+ console.log(body);
+ 
+    
+
+    const client = await clientPromise;
+    const db = client.db(process.env.MONGODB_DB);
+
+    // Get existing loan
+				const loan = await db.collection("loans").findOne({
+						customerId: Number(customerID),
+				});
+
+    if (!loan) {
+      return NextResponse.json(
+        { message: "Loan not found" },
+        { status: 404 }
+      );
+    }
+
+    let updatedPayments = loan.payments || [];
+
+    // If EMI start date changed, update all due dates
+const firstDueDate = new Date(loan.payments[0].dueDate);
+
+const currentDay = firstDueDate.getDate();
+const currentMonth = String(firstDueDate.getMonth() + 1).padStart(2, "0");
+const currentYear = String(firstDueDate.getFullYear());
+
+
+
+if (
+  String(body.emiDate) !== String(currentDay) ||
+  String(body.emiMonth).padStart(2, "0") !== String(currentMonth) ||
+  String(body.emiYear) !== String(currentYear)
+) {
+  
+ 
+  const startDay = Number(body.emiDate);
+  const startMonth = Number(body.emiMonth) - 1; // 0-11
+  const startYear = Number(body.emiYear);
+
+ updatedPayments = loan.payments.map((payment, index) => {
+const dueDate = new Date(
+  Date.UTC(
+    startYear,
+    startMonth + index,
+    startDay
+  )
+);
+
+    return {
+      ...payment,
+      dueDate,
+    };
+  });
+
+  body.payments = updatedPayments;
+}
+
+    await db.collection("loans").updateOne(
+      {customerId: Number(customerID) },
+      {
+        $set: {
+          ...body,
+          payments: updatedPayments,
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: "Loan updated successfully",
+    });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Something went wrong",
       },
       { status: 500 }
     );

@@ -265,7 +265,7 @@ return (
       {/* Customers */}
     <button
       onClick={() => router.push("/EMI-Calculator")}
-      className="flex flex-col items-center justify-center rounded-xl bg-blue-600 py-2  text-white shadow transition-all duration-300 hover:-translate-y-1 hover:bg-blue-700 hover:shadow-xl"
+      className="flex flex-col items-center justify-center rounded-xl bg-sky-600 py-2  text-white shadow transition-all duration-300 hover:-translate-y-1 hover:bg-sky-700 hover:shadow-xl"
     >
       <span className="mb-2 text-4xl">🧮</span>
       <span className="font-semibold">EMI Calculater</span>
@@ -273,7 +273,7 @@ return (
 
       <button
   onClick={() => router.push("/admin/collection")}
-  className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 p-5 text-white shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:from-blue-700 hover:to-blue-800 active:scale-95"
+  className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-yellow-600 to-yellow-700 p-5 text-white shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:from-yellow-700 hover:to-yellow-800 active:scale-95"
 >
 <span className="text-4xl">💰</span>
 

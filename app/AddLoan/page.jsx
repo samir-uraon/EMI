@@ -25,8 +25,8 @@ const { status } = useSession({
   mobile: "",
   altMobile: "",
   productName: "",
-  productPhoto: null,
-  customerIdProof: null,   // New field
+ productPhoto: [],
+  customerIdProof: [],   // New field
   address: "",
   productPrice: "",
   downPayment: "",
@@ -34,75 +34,110 @@ const { status } = useSession({
   emiAmount: "",
   numberOfEmi: "",
   emiDate: "",
+ emiStartMonth: "",
+  emiStartYear: "",
 });
 
   const handleChange = (e) => {
+  const { name, files } = e.target;
 
-     if (e.target.type === "file") {
-    const file = e.target.files[0];
+  const selectedFiles = Array.from(files);
 
-    if (file) {
-      const allowedTypes = ["image/png", "image/jpeg"];
+  const allowedTypes = ["image/png", "image/jpeg"];
 
-      if (!allowedTypes.includes(file.type)) {
-        alert("Only PNG, JPG, and JPEG files are allowed.");
-        e.target.value = "";
-        return;
-      }
-    }}
+  for (const file of selectedFiles) {
+    if (!allowedTypes.includes(file.type)) {
+      alert("Only PNG, JPG and JPEG files are allowed.");
+      e.target.value = "";
+      return;
+    }
+  }
 
-  const { name, value, files } = e.target;
+  setForm((prev) => {
+    const oldFiles = prev[name] || [];
 
+    // Maximum 2 files
+    if (oldFiles.length + selectedFiles.length > 2) {
+      alert("Maximum 2 images are allowed.");
+      e.target.value = "";
+      return prev;
+    }
 
-  setForm((prev) => ({
-    ...prev,
-    [name]: files ? files[0] : value,
-  }));
+    return {
+      ...prev,
+      [name]: [...oldFiles, ...selectedFiles],
+    };
+  });
+
+  // Clear input
+  e.target.value = "";
 };
+
+
 
 const handleSubmit = async (e) => {
   e.preventDefault();
 
-  setLoading(true)
+  setLoading(true);
 
   const formData = new FormData();
 
-  Object.keys(form).forEach((key) => {
-    formData.append(key, form[key]);
+  Object.entries(form).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      // Append each selected file
+      value.forEach((file) => {
+        formData.append(key, file);
+      });
+    } else {
+      formData.append(key, value);
+    }
   });
-  const res = await fetch("/api/loan", {
-    method: "POST",
-  body: formData,
-  });
 
-  const data = await res.json();
+  try {
+    const res = await fetch("/api/loan", {
+      method: "POST",
+      body: formData,
+    });
 
-  if (data.success) {
+    const data = await res.json();
 
-    toast.success(`Customer ID: ${data.loanId}`);
-  } else {
-    toast.error(data.message);
-      
+    if (data.success) {
+      toast.success(`Customer ID: ${data.loanId}`);
+
+      // Reset form
+      setForm({
+        customerName: "",
+        mobile: "",
+        altMobile: "",
+        productName: "",
+        productPhoto: [],
+        customerIdProof: [],
+        address: "",
+        productPrice: "",
+        downPayment: "",
+        financeAmount: "",
+        emiAmount: "",
+        numberOfEmi: "",
+        emiDate: "",
+        emiStartMonth: "",
+        emiStartYear: "",
+      });
+    } else {
+      toast.error(data.message);
+    }
+  } catch (error) {
+    console.error(error);
+    toast.error("Something went wrong");
+  } finally {
+    setLoading(false);
   }
+};
 
-setForm({
-  customerName: "",
-  mobile: "",
-  altMobile: "",
-  productName: "",
-  productPhoto: null,
-  customerIdProof: null,
-  address: "",
-  productPrice: "",
-  downPayment: "",
-  financeAmount: "",
-  emiAmount: "",
-  numberOfEmi: "",
-  emiDate: "",
-});
-
-setLoading(false)
-
+const removeFile = (field, index) => {
+  setForm((prev) => ({
+    ...prev,
+    [field]: prev[field].filter((_, i) => i !== index),
+  }));
 };
 
 
@@ -231,14 +266,48 @@ if (status === "loading" || loading) {
             <label className="font-medium">
               Product Photo (Optional)
             </label>
-            <input
+<input
   type="file"
   name="productPhoto"
-  accept=".png,.jpg,.jpeg,image/png,image/jpeg"
-  onKeyDown={handleKeyDown}
+  accept=".png,.jpg,.jpeg"
+  multiple
   onChange={handleChange}
   className="w-full border rounded-lg p-2 mt-1 text-black"
 />
+
+{form.productPhoto?.length > 0 && (
+  <div className="mt-3 space-y-2">
+    {form.productPhoto.map((file, index) => (
+      <div
+        key={index}
+        className="flex items-center justify-between border rounded-lg p-2 bg-gray-50"
+      >
+        <span className="truncate text-sm">{file.name}</span>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              const url = URL.createObjectURL(file);
+              window.open(url, "_blank");
+            }}
+            className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            View
+          </button>
+
+          <button
+            type="button"
+            onClick={() => removeFile("productPhoto", index)}
+            className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    ))}
+  </div>
+)}
           </div>
 
           {/* Address */}
@@ -349,21 +418,108 @@ if (status === "loading" || loading) {
   </select>
 </div>
 
+
+  {/* Month */}
+  <div>
+    <label className="font-medium">
+      EMI Start Month <span className="text-red-500">*</span>
+    </label>
+
+    <select
+      name="emiStartMonth"
+      value={form.emiStartMonth}
+      onChange={handleChange}
+      className="w-full border rounded-lg p-2 mt-1 text-black"
+      required
+    >
+      <option value="">Select Month</option>
+      {[
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ].map((month, index) => (
+        <option key={index} value={index + 1}>
+          {month}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  {/* Year */}
+<div>
+  <label className="font-medium">
+    EMI Start Year <span className="text-red-500">*</span>
+  </label>
+
+  <select
+    name="emiStartYear"
+    value={form.emiStartYear}
+    onChange={handleChange}
+    className="w-full border rounded-lg p-2 mt-1 text-black"
+    required
+  >
+    <option value="">Select Year</option>
+
+    {Array.from(
+      { length: new Date().getFullYear() + 10 - 2000 + 1 },
+      (_, i) => {
+        const year = 2000 + i;
+        return (
+          <option key={year} value={year}>
+            {year}
+          </option>
+        );
+      }
+    )}
+  </select>
+</div>
+
           {/* Customer ID Proof */}
 <div className="md:col-span-2">
   <label className="font-medium">
     Customer ID Proof<span className="text-red-500">*</span>
   </label>
 
-  <input
+<input
   type="file"
   name="customerIdProof"
-  title="File"
-  accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+  accept=".png,.jpg,.jpeg"
+  multiple
   onChange={handleChange}
   className="w-full border rounded-lg p-2 mt-1 text-black"
-  required
 />
+
+{form.customerIdProof?.length > 0 && (
+  <div className="mt-3 space-y-2">
+    {form.customerIdProof.map((file, index) => (
+      <div
+        key={index}
+        className="flex items-center justify-between border rounded-lg p-2"
+      >
+        <span className="text-sm text-gray-700 truncate">
+          {file.name}
+        </span>
+
+        <button
+          type="button"
+          onClick={() => window.open(URL.createObjectURL(file), "_blank")}
+          className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+        >
+          View
+        </button>
+      </div>
+    ))}
+  </div>
+)}
 
   <p className="text-sm text-gray-500 mt-1">
     Upload Aadhaar Card, PAN Card, Voter ID, Driving License or Passport.

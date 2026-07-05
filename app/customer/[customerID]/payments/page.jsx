@@ -71,6 +71,7 @@ const completedBatch = originalPayments.filter(
   (payment) => payment.status === "Paid" || payment.status === "Late"
 ).length;
 
+
 const handleChange = (index, field, value) => {
   const updated = [...payments];
 
@@ -83,59 +84,64 @@ const handleChange = (index, field, value) => {
 
   setPayments(updated);
 };
-// 1. Is there any change?
-const hasChanges = payments.some((payment, index) => {
-  const original = originalPayments[index];
-
-  if (!original) return true;
-
-  const currentPaidDate = payment.paidDate?.split("T")[0] || "";
-  const originalPaidDate = original.paidDate?.split("T")[0] || "";
-
-  return (
-    payment.status !== original.status ||
-    payment.paymentMode !== original.paymentMode ||
-    currentPaidDate !== originalPaidDate ||
-    Number(payment.fine || 0) !== Number(original.fine || 0) ||
-    payment.remarks !== original.remarks
-  );
-});
-
-const allChangedPaymentsValid = payments.every((payment, index) => {
-  const original = originalPayments[index];
-
-  if (!original) return true;
-
-  const currentPaidDate = payment.paidDate?.split("T")[0] || "";
-  const originalPaidDate = original.paidDate?.split("T")[0] || "";
-
-  const changed =
-    payment.status !== original.status ||
-    payment.paymentMode !== original.paymentMode ||
-    currentPaidDate !== originalPaidDate ||
-    Number(payment.fine || 0) !== Number(original.fine || 0) ||
-    payment.remarks !== original.remarks;
-
-  // Ignore unchanged rows
-  if (!changed) return true;
-
-  // Changed row must have all required fields
-  return (
-    (payment.status === "Paid" || payment.status === "Late") &&
-    currentPaidDate !== "" &&
-    payment.paymentMode !== ""
-  );
-});
 
 const currentEmiIndex = originalPayments.findIndex(
   (payment) => payment.status === "Pending"
 );
 
+// If no pending EMI, check all payments
+const lastIndex =
+  currentEmiIndex === -1 ? payments.length - 1 : currentEmiIndex;
+
+const hasChanges = payments
+  .slice(0, lastIndex + 1)
+  .some((payment, index) => {
+    const original = originalPayments[index];
+
+    if (!original) return true;
+
+    const currentPaidDate = payment.paidDate?.split("T")[0] || "";
+    const originalPaidDate = original.paidDate?.split("T")[0] || "";
+
+    return (
+      payment.status !== original.status ||
+      payment.paymentMode !== original.paymentMode ||
+      currentPaidDate !== originalPaidDate ||
+      Number(payment.fine || 0) !== Number(original.fine || 0) ||
+      payment.remarks !== original.remarks
+    );
+  });
+
+const allChangedPaymentsValid = payments
+  .slice(0, lastIndex + 1)
+  .every((payment, index) => {
+    const original = originalPayments[index];
+
+    if (!original) return true;
+
+    const currentPaidDate = payment.paidDate?.split("T")[0] || "";
+    const originalPaidDate = original.paidDate?.split("T")[0] || "";
+
+    const changed =
+      payment.status !== original.status ||
+      payment.paymentMode !== original.paymentMode ||
+      currentPaidDate !== originalPaidDate ||
+      Number(payment.fine || 0) !== Number(original.fine || 0) ||
+      payment.remarks !== original.remarks;
+
+    if (!changed) return true;
+
+    return (
+      (payment.status === "Paid" || payment.status === "Late") &&
+      currentPaidDate !== "" &&
+      payment.paymentMode !== ""
+    );
+  });
+
 const showSaveButton =
   activeBatch !== 0 &&
   hasChanges &&
   allChangedPaymentsValid;
-
 
 
   const handleSave = async () => {
@@ -267,7 +273,7 @@ return (
       {/* Table Body */}
       <tbody className="divide-y divide-slate-200">
         {payments?.map((payment, index) => {
-              const canEdit = index === currentEmiIndex;
+              const canEdit = index <= currentEmiIndex;
               return (
           <tr key={index} className="transition-colors duration-150 hover:bg-slate-50/70">
             
@@ -389,7 +395,7 @@ return (
 {/* Mobile View */}
 <div className="md:hidden space-y-4 text-slate-500">
   {payments.map((payment, index) =>{
-     const canEdit = index === currentEmiIndex;
+     const canEdit = index <= currentEmiIndex;
      return   (
     <div
       key={index}

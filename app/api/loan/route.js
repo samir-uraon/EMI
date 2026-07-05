@@ -104,18 +104,14 @@ const emiAmount = Number(formData.get("emiAmount"));
 const emiDate = Number(formData.get("emiDate"));
 const totalLoanAmount=emiAmount * numberOfEmi
 
-const today = new Date();
+const emiStartMonth = Number(formData.get("emiStartMonth")); // 1-12
+const emiStartYear = Number(formData.get("emiStartYear"));
 
-const firstDueDate = new Date(today);
-
-// Set the selected EMI day
-firstDueDate.setDate(Number(emiDate));
-
-// If today's date has already passed the EMI date,
-// move the first EMI to the next month.
-if (today.getDate() > Number(emiDate)) {
-  firstDueDate.setMonth(firstDueDate.getMonth() + 1);
-}
+const firstDueDate = new Date(
+  emiStartYear,
+  emiStartMonth - 1, // JavaScript months are 0-based
+  emiDate
+);
 
 const payments = [];
 
@@ -128,12 +124,12 @@ for (let i = 0; i < numberOfEmi; i++) {
     dueDate,
     amount: emiAmount,
 
-    status: "Pending",      // Pending | Paid | Late
+    status: "Pending",
     paidDate: null,
 
     fine: 200,
     finePaid: false,
-    removeMark:false
+    removeMark: false,
   });
 }
   
@@ -171,6 +167,8 @@ for (let i = 0; i < numberOfEmi; i++) {
 
   // EMI Schedule
   payments,
+  emiStartMonth,
+  emiStartYear,
       createdAt: new Date(),
     };
 
