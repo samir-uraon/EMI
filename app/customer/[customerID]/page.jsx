@@ -10,6 +10,7 @@ export default function LoanDetails() {
   const { customerID } = useParams();
   const router = useRouter();
 const [preview, setPreview] = useState(null);
+const [pdfUrl, setPdfUrl] = useState(null);
 
   const { data: session, status } = useSession({
     required: true,
@@ -82,7 +83,7 @@ const [preview, setPreview] = useState(null);
     }
   };
 
-  const handleGeneratePDF = async () => {
+const handleGeneratePDF = async () => {
   const formatted = new Date(loan?.createdAt).toLocaleDateString("en-GB");
 
   const customer = {
@@ -96,30 +97,51 @@ const [preview, setPreview] = useState(null);
     numberOfEmi: loan?.numberOfEmi,
   };
 
+  let loadingToast = toast.loading("Generating PDF Form...");
+
   try {
-    const res = await fetch("/api/pdf", {
+    // We send a direct JSON object down to the API route
+    const response = await fetch("/api/pdf", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json", 
+        "Accept": "application/pdf",
       },
-      body: JSON.stringify(customer),
+      body: JSON.stringify({ customer }),
     });
 
-    if (!res.ok) throw new Error("Failed to generate PDF");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to generate PDF on server");
+    }
 
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
+    const blob = await response.blob();
+    
+    // Fallback strategy designed to force Website2App / Native systems to catch download streams
+    const reader = new FileReader();
+    reader.readAsDataURL(blob);
+    reader.onloadend = () => {
+      const base64data = reader.result;
+      
+      const link = document.createElement("a");
+      link.href = base64data;
+      link.download = `Loan_Form_${(loan?.customerName || "Customer").replace(/\s+/g, "_")}.pdf`;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.dismiss(loadingToast);
+      toast.success("PDF Downloaded Successfully");
+    };
 
-    // Preview PDF
-    window.open(url, "_blank");
-
-    // Clean up after a short delay
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  } catch (err) {
-    console.error(err);
-    alert("Unable to generate PDF");
+  } catch (error) {
+    toast.dismiss(loadingToast);
+    toast.error(error.message || "Could not generate PDF");
+    console.error("PDF generation error:", error);
   }
 };
+
 
   const idProofs = Array.isArray(loan?.customerIdProof)
     ? loan?.customerIdProof
@@ -217,6 +239,27 @@ const [preview, setPreview] = useState(null);
                   </div>
                 </div>
               </div>
+              {pdfUrl && (
+  <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
+    <div className="relative w-[95%] h-[95%] bg-white rounded-lg overflow-hidden">
+      <button
+        onClick={() => {
+          URL.revokeObjectURL(pdfUrl);
+          setPdfUrl(null);
+        }}
+        className="absolute top-3 right-3 z-10 bg-red-600 text-white px-3 py-1 rounded"
+      >
+        ✕
+      </button>
+
+      <iframe
+        src={pdfUrl}
+        title="PDF Preview"
+        className="w-full h-full"
+      />
+    </div>
+  </div>
+)}
 
               {/* Customer ID Proof */}
             {/* Customer ID Proof */}

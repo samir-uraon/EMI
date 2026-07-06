@@ -230,9 +230,6 @@ export async function PUT(req, { params }) {
   try {
     const { customerID } =await params;
     const body = await req.json();
-
- 
- 
     
 
     const client = await clientPromise;
