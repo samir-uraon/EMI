@@ -38,6 +38,8 @@ const loans = await db.collection("loans").find({ removeMark: { $ne: true } }).t
 
     const transactions = [];
 
+    
+
     loans.forEach((loan) => {
       (loan.payments || []).forEach((payment) => {
         // Only Paid EMIs

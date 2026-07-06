@@ -85,7 +85,7 @@ customers.forEach((customer) => {
 customers.forEach((customer) => {
   if (customer.status !== "Active" || customer.removeMark) return;
     customer.payments?.forEach((payment) => {
-    if (!payment.finePaid) return;
+    if (!payment.finePaid || payment.status === "Pending") return;
 
     totalFine+=payment.fine||0
 

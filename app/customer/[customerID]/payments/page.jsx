@@ -56,36 +56,44 @@ export default function PaymentBoard() {
       console.error(err);
       toast.error("Failed to fetch payments");
     } finally {
-      loading && setLoading(false);
+      setLoading(false);
     }
   };
 
-// Stable index baseline from database
-const currentEmiIndex = originalPayments.findIndex(
-  (payment) => payment.status === "Pending"
-);
+  // Stable index baseline from database
+  const currentEmiIndex = originalPayments.findIndex(
+    (payment) => payment.status === "Pending"
+  );
 
-// 1. Active EMI Count: Only count "Pending" up to the current active EMI index
-const activeBatch = payments.filter((payment, index) => {
-  if (payment.status !== "Pending") return false;
-  return currentEmiIndex === -1 || index <= currentEmiIndex;
-}).length;
+  // 1. Active EMI Count: Only count "Pending" up to the current active EMI index
 
-// 2. Completed EMI Count: Only count paid rows up to the current active EMI index
-const completedBatch = payments.filter((payment, index) => {
-  if (payment.status !== "Paid" && payment.status !== "Late") return false;
-  return currentEmiIndex === -1 || index <= currentEmiIndex;
-}).length;
 
-const handleChange = (index, field, value) => {
-  const updated = [...payments];
+  // 2. Completed EMI Count: Only count paid rows up to the current active EMI index
+  const completedBatch = payments.filter((payment, index) => {
+    if (payment.status !== "Paid" && payment.status !== "Late") return false;
+    return currentEmiIndex === -1 || index <= currentEmiIndex;
+  }).length;
+
+    const activeBatch = Number(payments.length-completedBatch)
+
+  const handleChange = (index, field, value) => {
+  let updated = [...payments];
   updated[index][field] = value;
 
-  // IF STATUS CHANGES TO PENDING: Automatically clear out date and mode fields
+  // IF STATUS CHANGES TO PENDING: Reset this row AND all future rows
   if (field === "status" && value === "Pending") {
-    updated[index].paidDate = "";
-    updated[index].paymentMode = "";
-    updated[index].finePaid = false;
+    updated = updated.map((payment, idx) => {
+      if (idx >= index) {
+        return {
+          ...payment,
+          status: "Pending",
+          paidDate: "",
+          paymentMode: "",
+          finePaid: false,
+        };
+      }
+      return payment;
+    });
   } else if (field === "status") {
     updated[index].finePaid = value === "Late";
   }
@@ -93,92 +101,95 @@ const handleChange = (index, field, value) => {
   setPayments(updated);
 };
 
-const isRowChanged = (index) => {
-  const current = payments[index];
-  const original = originalPayments[index];
-  if (!current || !original) return false;
+  const isRowChanged = (index) => {
+    const current = payments[index];
+    const original = originalPayments[index];
+    if (!current || !original) return false;
 
-  const currentPaidDate = current.paidDate?.split("T")[0] || "";
-  const originalPaidDate = original.paidDate?.split("T")[0] || "";
+    const currentPaidDate = current.paidDate?.split("T")[0] || "";
+    const originalPaidDate = original.paidDate?.split("T")[0] || "";
 
-  return (
-    current.status !== original.status ||
-    current.paymentMode !== original.paymentMode ||
-    currentPaidDate !== originalPaidDate ||
-    current.remarks !== original.remarks
-  );
-};
+    return (
+      current.status !== original.status ||
+      (current.paymentMode || "") !== (original.paymentMode || "") ||
+      currentPaidDate !== originalPaidDate ||
+      current.remarks !== original.remarks
+    );
+  };
 
-const isRowValid = (index) => {
-  const payment = payments[index];
-  if (!payment) return false;
-  
-  const currentPaidDate = payment.paidDate?.split("T")[0] || "";
+  const isRowValid = (index) => {
+    const payment = payments[index];
+    if (!payment) return false;
+    
+    const currentPaidDate = payment.paidDate?.split("T")[0] || "";
 
-  // 1. If Pending: It is valid immediately because handleChange auto-cleared the other fields
-  if (payment.status === "Pending") {
-    return currentPaidDate.trim() === "" && (payment.paymentMode || "").trim() === "";
-  }
+    // 1. If Pending: It is valid immediately because fields are blanked out
+    if (payment.status === "Pending") {
+      return currentPaidDate.trim() === "" && (payment.paymentMode || "").trim() === "";
+    }
 
-  // 2. If Paid or Late: Valid ONLY if BOTH fields are fully selected/filled out
-  return (
-    (payment.status === "Paid" || payment.status === "Late") &&
-    currentPaidDate.trim() !== "" &&
-    payment.paymentMode !== undefined &&
-    payment.paymentMode.trim() !== ""
-  );
-};
+    // 2. If Paid or Late: Valid ONLY if BOTH fields are fully selected/filled out
+    return (
+      (payment.status === "Paid" || payment.status === "Late") &&
+      currentPaidDate.trim() !== "" &&
+      payment.paymentMode !== undefined &&
+      payment.paymentMode.trim() !== ""
+    );
+  };
 
   const handleSave = async (index) => {
-    try {
-      const targetPayment = payments[index];
+  try {
+    const targetPayment = payments[index];
 
-      const isNowCompleted = payments.every(
-        (p) => p.status === "Paid" || p.status === "Late"
-      );
-      const wasAlreadyCompleted = originalPayments.every(
-        (p) => p.status === "Paid" || p.status === "Late"
-      );
+  
 
-      if (isNowCompleted && !wasAlreadyCompleted) {
-        let con = confirm(
-          "After saving changes, Loan will be completed because this is the Last EMI?"
-        );
-        if (!con) return;
-      }
+    setLoading(true);
 
-      setLoading(true);
-      const res = await fetch(`/api/customer/${customerID}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          payment: targetPayment,
-          paymentIndex: index 
-        }),
-      });
+    // Check if saving this row caused a cascade reset to Pending for subsequent rows
+    const isResetCascade = targetPayment.status === "Pending";
 
-      const data = await res.json();
+    const res = await fetch(`/api/customer/${customerID}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      // If a cascade happened, send the whole payments array to update the database state fully
+      body: JSON.stringify({
+        payment: targetPayment,
+        paymentIndex: index,
+        isCascadeUpdate: isResetCascade, 
+        allPayments: isResetCascade ? payments : null 
+      }),
+    });
 
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to update payment");
-      }
+    const data = await res.json();
 
-      toast.success(`EMI #${targetPayment.emiNo} Updated Successfully`);
-      
+    if (!res.ok) {
+      throw new Error(data.message || "Failed to update payment");
+    }
+
+    toast.success(
+  `EMI #${targetPayment.emiNo} Updated Successfully`
+    );
+    
+    // Sync the entire local database reflection array state smoothly
+    if (isResetCascade) {
+      setOriginalPayments(structuredClone(payments));
+      setUnlockedRows({}); // Relock everything cleanly since timeline state went backwards
+    } else {
       const updatedOriginals = [...originalPayments];
       updatedOriginals[index] = structuredClone(targetPayment);
       setOriginalPayments(updatedOriginals);
-      
       setUnlockedRows((prev) => ({ ...prev, [index]: false }));
-    } catch (error) {
-      router.push("/TotalCustomer");
-      toast.error(error.message || "Something went wrong");
-    } finally {
-      setLoading(false);
     }
-  };
+
+  } catch (error) {
+    router.push("/TotalCustomer");
+    toast.error(error.message || "Something went wrong");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const toggleEditRow = (index) => {
     setUnlockedRows((prev) => ({
@@ -330,7 +341,7 @@ const isRowValid = (index) => {
                     <td className="px-3 py-2">
                       <select
                         disabled={!isRowUnlocked}
-                        value={payment.paymentMode}
+                        value={payment.paymentMode || ""}
                         onChange={(e) => handleChange(index, "paymentMode", e.target.value)}
                         className={`w-full rounded-lg border px-2.5 py-1.5 text-sm transition ${
                           !isRowUnlocked ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-white"
@@ -347,7 +358,7 @@ const isRowValid = (index) => {
                         type="text"
                         disabled={!isRowUnlocked}
                         placeholder="Add remarks..."
-                        value={payment.remarks}
+                        value={payment.remarks || ""}
                         onChange={(e) => handleChange(index, "remarks", e.target.value)}
                         className={`w-full rounded-lg border px-2.5 py-1.5 text-sm transition focus:outline-none ${
                           !isRowUnlocked
@@ -522,7 +533,7 @@ const isRowValid = (index) => {
                   <label className="text-sm font-medium">Payment Mode</label>
                   <select
                     disabled={!isRowUnlocked}
-                    value={payment.paymentMode}
+                    value={payment.paymentMode || ""}
                     onChange={(e) => handleChange(index, "paymentMode", e.target.value)}
                     className={`w-full rounded-lg border p-2 ${
                       !isRowUnlocked ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed" : "bg-white border-slate-300"
@@ -539,7 +550,7 @@ const isRowValid = (index) => {
                   <input
                     type="text"
                     disabled={!isRowUnlocked}
-                    value={payment.remarks}
+                    value={payment.remarks || ""}
                     onChange={(e) => handleChange(index, "remarks", e.target.value)}
                     className={`w-full rounded-lg border p-2 ${
                       !isRowUnlocked ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed" : "bg-white border-slate-300"

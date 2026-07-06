@@ -100,8 +100,8 @@ export async function POST(req, { params }) {
       );
     }
 
-    // UPDATED: Expecting a single payment payload and its array index from the frontend
-    const { payment, paymentIndex } = await req.json();
+    // UPDATED: Now destructuring isCascadeUpdate and allPayments from the frontend payload
+    const { payment, paymentIndex, isCascadeUpdate, allPayments } = await req.json();
     const { customerID } = await params;
 
     const client = await clientPromise;
@@ -157,21 +157,38 @@ export async function POST(req, { params }) {
     }
 
     // =========================================================================
-    // CRITICAL FIX: Build full structural memory list to safely update counts
+    // STRUCTURAL RECONCILIATION: Check if update requires whole timeline reset
     // =========================================================================
-    let currentPayments = loan.payments || [];
-    
-    // Safely structure dates for the updated payload element before mutations
-    const finalizedPaymentElement = {
-      ...payment,
-      paidDate: payment.paidDate ? new Date(payment.paidDate) : "",
-      dueDate: payment.dueDate ? new Date(payment.dueDate) : undefined,
-    };
+    let currentPayments = [];
+    let updateFields = {};
 
-    // Replace ONLY the edited EMI inside the localized array setup
-    currentPayments[paymentIndex] = finalizedPaymentElement;
+    if (isCascadeUpdate && Array.isArray(allPayments)) {
+      // 1. Process entire cascading layout sequence array map cleanly
+      currentPayments = allPayments.map((p) => ({
+        ...p,
+        paidDate: p.paidDate ? new Date(p.paidDate) : "",
+        dueDate: p.dueDate ? new Date(p.dueDate) : undefined,
+      }));
 
-    // Recalculate loan metrics based on the safely modified workspace copy
+      // Set MongoDB payload to overwrite the entire payments array field
+      updateFields.payments = currentPayments;
+    } else {
+      // 2. Fall back to standard single row array element replacement memory mapping
+      currentPayments = loan.payments || [];
+      
+      const finalizedPaymentElement = {
+        ...payment,
+        paidDate: payment.paidDate ? new Date(payment.paidDate) : "",
+        dueDate: payment.dueDate ? new Date(payment.dueDate) : undefined,
+      };
+
+      currentPayments[paymentIndex] = finalizedPaymentElement;
+      
+      // Target ONLY the exact array path slot for minor performance optimization
+      updateFields[`payments.${paymentIndex}`] = finalizedPaymentElement;
+    }
+
+    // Recalculate loan metrics over revised timeline sequence structure
     const paidPayments = currentPayments.filter((p) => p.status === "Paid" || p.status === "Late");
 
     const paidEmi = paidPayments.length;
@@ -188,26 +205,21 @@ export async function POST(req, { params }) {
     );
 
     const fineCount = currentPayments.filter((p) => p.finePaid === true).length;
-    const status = remainingEmi === 0 ? "Completed" : "Active";
+    const loanStatus = remainingEmi === 0 ? "Completed" : "Active";
 
-    // Dynamic targeting key pointing to precisely one index slot inside MongoDB
-    const targetArrayPath = `payments.${paymentIndex}`;
+    // Populate remaining core global loan operational parameter flags
+    updateFields.paidEmi = paidEmi;
+    updateFields.remainingEmi = remainingEmi;
+    updateFields.totalPaid = totalPaid;
+    updateFields.fineAmount = fineAmount;
+    updateFields.fineCount = fineCount;
+    updateFields.status = loanStatus;
+    updateFields.updatedAt = new Date();
 
-    // Update only the single array item along with the updated global loan metrics
+    // Push calculations safely up to database collection cluster fields
     const result = await db.collection("loans").updateOne(
       { customerId: Number(customerID) },
-      {
-        $set: {
-          [targetArrayPath]: finalizedPaymentElement, // Updates ONLY this specific row inside the array
-          paidEmi,
-          remainingEmi,
-          totalPaid,
-          fineAmount,
-          fineCount,
-          status,
-          updatedAt: new Date(),
-        },
-      }
+      { $set: updateFields }
     );
 
     if (result.matchedCount === 0) {
@@ -219,7 +231,9 @@ export async function POST(req, { params }) {
 
     return NextResponse.json({
       success: true,
-      message: `EMI #${payment.emiNo} updated successfully`,
+      message: isCascadeUpdate 
+        ? `EMI #${payment.emiNo} and trailing active metrics rolled back successfully` 
+        : `EMI #${payment.emiNo} updated successfully`,
     });
   } catch (error) {
     console.error(error);
