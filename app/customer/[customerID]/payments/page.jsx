@@ -19,7 +19,7 @@ export default function PaymentBoard() {
   const [originalPayments, setOriginalPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Track manually unlocked historical rows
+  // Track manually unlocked rows for historical edits
   const [unlockedRows, setUnlockedRows] = useState({});
 
   const { customerID } = useParams();
@@ -48,6 +48,7 @@ export default function PaymentBoard() {
 
         setPayments(paymentList);
         setOriginalPayments(structuredClone(paymentList));
+        setUnlockedRows({}); 
       } else {
         toast.error(data.message);
       }
@@ -55,7 +56,7 @@ export default function PaymentBoard() {
       console.error(err);
       toast.error("Failed to fetch payments");
     } finally {
-      setLoading(false);
+      loading && setLoading(false);
     }
   };
 
@@ -67,17 +68,9 @@ export default function PaymentBoard() {
     (payment) => payment.status === "Paid" || payment.status === "Late"
   ).length;
 
-  // Track the first active pending index
   const currentEmiIndex = originalPayments.findIndex(
     (payment) => payment.status === "Pending"
   );
-
-  const toggleRowLock = (index) => {
-    setUnlockedRows((prev) => ({
-      ...prev,
-      [index]: !prev[index],
-    }));
-  };
 
   const handleChange = (index, field, value) => {
     const updated = [...payments];
@@ -90,51 +83,48 @@ export default function PaymentBoard() {
     setPayments(updated);
   };
 
-  // Check variations across edited ranges
-  const hasChanges = payments.some((payment, index) => {
+  const isRowChanged = (index) => {
+    const current = payments[index];
     const original = originalPayments[index];
-    if (!original) return true;
+    if (!current || !original) return false;
 
-    const currentPaidDate = payment.paidDate?.split("T")[0] || "";
+    const currentPaidDate = current.paidDate?.split("T")[0] || "";
     const originalPaidDate = original.paidDate?.split("T")[0] || "";
 
     return (
-      payment.status !== original.status ||
-      payment.paymentMode !== original.paymentMode ||
-      currentPaidDate !== originalPaidDate ||
-      Number(payment.fine || 0) !== Number(original.fine || 0) ||
-      payment.remarks !== original.remarks
+      current.status !== original.status ||
+      current.paymentMode !== original.paymentMode ||
+      currentPaidDate !== originalPaidDate
     );
-  });
+  };
 
-  const allChangedPaymentsValid = payments.every((payment, index) => {
-    const original = originalPayments[index];
-    if (!original) return true;
-
+  const isRowValid = (index) => {
+    const payment = payments[index];
+    if (!payment) return false;
     const currentPaidDate = payment.paidDate?.split("T")[0] || "";
 
-    const changed =
-      payment.status !== original.status ||
-      payment.paymentMode !== original.paymentMode ||
-      currentPaidDate !== (original.paidDate?.split("T")[0] || "") ||
-      Number(payment.fine || 0) !== Number(original.fine || 0) ||
-      payment.remarks !== original.remarks;
-
-    if (!changed) return true;
+    if (payment.status === "Pending") return true;
 
     return (
       (payment.status === "Paid" || payment.status === "Late") &&
       currentPaidDate !== "" &&
       payment.paymentMode !== ""
     );
-  });
+  };
 
-  const showSaveButton = activeBatch !== 0 && hasChanges && allChangedPaymentsValid;
-
-  const handleSave = async () => {
+  const handleSave = async (index) => {
     try {
-      if (payments.every((payment) => payment.status === "Paid" || payment.status === "Late")) {
-        let con = confirm("After saving changes, Loan will be locked because this is the Last EMI?");
+      const isNowCompleted = payments.every(
+        (p) => p.status === "Paid" || p.status === "Late"
+      );
+      const wasAlreadyCompleted = originalPayments.every(
+        (p) => p.status === "Paid" || p.status === "Late"
+      );
+
+      if (isNowCompleted && !wasAlreadyCompleted) {
+        let con = confirm(
+          "After saving changes, Loan will be completed because this is the Last EMI?"
+        );
         if (!con) return;
       }
 
@@ -155,13 +145,22 @@ export default function PaymentBoard() {
 
       toast.success("Payments Updated Successfully");
       setOriginalPayments(structuredClone(payments));
-      setUnlockedRows({}); // Re-lock manual override slots
+      
+      // Relock row upon clean submission
+      setUnlockedRows((prev) => ({ ...prev, [index]: false }));
     } catch (error) {
       router.push("/TotalCustomer");
       toast.error(error.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleEditRow = (index) => {
+    setUnlockedRows((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }));
   };
 
   if (status === "loading" || loading) {
@@ -207,18 +206,6 @@ export default function PaymentBoard() {
           >
             📄 Loan Details
           </button>
-
-          <button
-            onClick={handleSave}
-            disabled={!showSaveButton}
-            className={`w-full sm:w-auto px-6 py-3 rounded-lg shadow font-semibold transition ${
-              showSaveButton
-                ? "bg-blue-600 hover:bg-blue-700 text-white shadow-md"
-                : "bg-slate-300 text-slate-500 cursor-not-allowed"
-            }`}
-          >
-            💾 Save Changes
-          </button>
         </div>
       </div>
 
@@ -236,18 +223,26 @@ export default function PaymentBoard() {
                 <th scope="col" className="px-4 py-3.5 w-28">Fine</th>
                 <th scope="col" className="px-4 py-3.5 w-36">Mode</th>
                 <th scope="col" className="px-4 py-3.5">Remarks</th>
-                <th scope="col" className="px-4 py-3.5 text-center w-24">Action</th>
+                <th scope="col" className="px-4 py-3.5 text-center w-32">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {payments?.map((payment, index) => {
-                // Rule: Current active EMI is naturally unlocked. Historical items (index < currentEmiIndex) require manual unlock. Future entries remain locked.
                 const isCurrentEmi = currentEmiIndex !== -1 && index === currentEmiIndex;
                 const isPastEmi = currentEmiIndex !== -1 && index < currentEmiIndex;
-                const isEditable = isCurrentEmi || !!unlockedRows[index];
+                const isLoanCompleted = currentEmiIndex === -1;
+                
+                // Unlocked IF: Current active EMI row OR if manually unlocked via "Edit" button
+                const isRowUnlocked = isCurrentEmi || !!unlockedRows[index];
+
+                // PERFECTED CONDITION: Show buttons ONLY for the current EMI row, past EMI rows, or if the loan is completely closed
+                const showActionBtn = isCurrentEmi || isPastEmi || isLoanCompleted;
+
+                const rowChanged = isRowChanged(index);
+                const rowValid = isRowValid(index);
 
                 return (
-                  <tr key={index} className="transition-colors duration-150 hover:bg-slate-50/70">
+                  <tr key={index} className="hover:bg-slate-50/70 transition-colors duration-150">
                     <td className="px-4 py-3 text-center font-semibold text-slate-900">{payment.emiNo}</td>
                     <td className="px-4 py-3 text-center font-medium text-slate-500">
                       {payment.dueDate?.split("T")[0].split("-").reverse().join("-")}
@@ -255,11 +250,11 @@ export default function PaymentBoard() {
                     <td className="px-3 py-2">
                       <input
                         type="date"
-                        disabled={!isEditable}
+                        disabled={!isRowUnlocked}
                         value={payment.paidDate?.split("T")[0] || ""}
                         onChange={(e) => handleChange(index, "paidDate", e.target.value)}
                         className={`w-full rounded-lg border px-2.5 py-1.5 text-sm transition focus:outline-none ${
-                          !isEditable
+                          !isRowUnlocked
                             ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
                             : "bg-white text-slate-800 border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                         }`}
@@ -270,11 +265,11 @@ export default function PaymentBoard() {
                     </td>
                     <td className="px-3 py-2">
                       <select
-                        disabled={!isEditable}
+                        disabled={!isRowUnlocked}
                         value={payment.status}
                         onChange={(e) => handleChange(index, "status", e.target.value)}
                         className={`w-full rounded-lg border px-2.5 py-1.5 text-sm font-medium transition focus:outline-none focus:ring-2 ${
-                          !isEditable
+                          !isRowUnlocked
                             ? "bg-slate-100 text-slate-400 cursor-not-allowed"
                             : payment.status === "Paid"
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-100 focus:border-emerald-400"
@@ -292,7 +287,7 @@ export default function PaymentBoard() {
                       <div className="relative rounded-lg shadow-sm">
                         <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-xs text-slate-400 pointer-events-none">₹</span>
                         <input
-                          disabled={!isEditable}
+                          disabled
                           type="number"
                           readOnly
                           value={payment.status === "Late" ? payment.fine : 0}
@@ -302,11 +297,11 @@ export default function PaymentBoard() {
                     </td>
                     <td className="px-3 py-2">
                       <select
-                        disabled={!isEditable}
+                        disabled={!isRowUnlocked}
                         value={payment.paymentMode}
                         onChange={(e) => handleChange(index, "paymentMode", e.target.value)}
                         className={`w-full rounded-lg border px-2.5 py-1.5 text-sm transition ${
-                          !isEditable ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-white"
+                          !isRowUnlocked ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-white"
                         }`}
                       >
                         <option value="">Select Mode</option>
@@ -318,29 +313,39 @@ export default function PaymentBoard() {
                     <td className="px-3 py-2">
                       <input
                         type="text"
-                        disabled={!isEditable}
+                        disabled={!isRowUnlocked}
                         placeholder="Add remarks..."
                         value={payment.remarks}
                         onChange={(e) => handleChange(index, "remarks", e.target.value)}
                         className={`w-full rounded-lg border px-2.5 py-1.5 text-sm transition focus:outline-none ${
-                          !isEditable
+                          !isRowUnlocked
                             ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
                             : "bg-white text-slate-800 border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                         }`}
                       />
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {isPastEmi ? (
-                        <button
-                          onClick={() => toggleRowLock(index)}
-                          className={`px-3 py-1 rounded text-xs font-semibold tracking-wide transition border ${
-                            unlockedRows[index]
-                              ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-600"
-                              : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300"
-                          }`}
-                        >
-                          {unlockedRows[index] ? "🔒 Lock" : "🔓 Edit"}
-                        </button>
+                      {showActionBtn ? (
+                        isRowUnlocked ? (
+                          <button
+                            disabled={!rowChanged || !rowValid}
+                            onClick={() => handleSave(index)}
+                            className={`w-full py-1.5 rounded text-xs font-semibold tracking-wide transition border ${
+                              rowChanged && rowValid
+                                ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-700 shadow-sm"
+                                : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                            }`}
+                          >
+                            💾 Save Changes
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => toggleEditRow(index)}
+                            className="w-full py-1.5 rounded text-xs font-semibold tracking-wide transition border bg-slate-200 hover:bg-slate-300 text-slate-700 border-slate-300 shadow-sm"
+                          >
+                            🔓 Edit
+                          </button>
+                        )
                       ) : (
                         <span className="text-xs font-medium text-slate-400">—</span>
                       )}
@@ -358,25 +363,41 @@ export default function PaymentBoard() {
         {payments.map((payment, index) => {
           const isCurrentEmi = currentEmiIndex !== -1 && index === currentEmiIndex;
           const isPastEmi = currentEmiIndex !== -1 && index < currentEmiIndex;
-          const isEditable = isCurrentEmi || !!unlockedRows[index];
+          const isLoanCompleted = currentEmiIndex === -1;
+          
+          const isRowUnlocked = isCurrentEmi || !!unlockedRows[index];
+          const showActionBtn = isCurrentEmi || isPastEmi || isLoanCompleted;
+
+          const rowChanged = isRowChanged(index);
+          const rowValid = isRowValid(index);
 
           return (
             <div key={index} className="bg-white rounded-xl shadow border p-4">
               <div className="flex justify-between items-center mb-3">
                 <h3 className="font-bold text-lg text-slate-800">EMI #{payment.emiNo}</h3>
                 <div className="flex items-center gap-2">
-                  {isPastEmi && (
-                    <button
-                      onClick={() => toggleRowLock(index)}
-                      className={`px-2.5 py-1 rounded text-xs font-semibold border ${
-                        unlockedRows[index]
-                          ? "bg-amber-500 text-white border-amber-600"
-                          : "bg-slate-100 text-slate-700 border-slate-300"
-                      }`}
-                    >
-                      {unlockedRows[index] ? "Lock" : "Edit"}
-                    </button>
-                  )}
+                  {showActionBtn ? (
+                    isRowUnlocked ? (
+                      <button
+                        disabled={!rowChanged || !rowValid}
+                        onClick={() => handleSave(index)}
+                        className={`px-3 py-1 rounded text-xs font-semibold border transition ${
+                          rowChanged && rowValid
+                            ? "bg-blue-600 text-white border-blue-700"
+                            : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                        }`}
+                      >
+                        Save
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => toggleEditRow(index)}
+                        className="px-3 py-1 rounded text-xs font-semibold border transition bg-slate-200 hover:bg-slate-300 text-slate-700 border-slate-300 shadow-sm"
+                      >
+                        Edit
+                      </button>
+                    )
+                  ) : null}
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-semibold ${
                       payment.status === "Paid"
@@ -406,22 +427,22 @@ export default function PaymentBoard() {
                   <label className="text-sm font-medium">Paid Date</label>
                   <input
                     type="date"
-                    disabled={!isEditable}
+                    disabled={!isRowUnlocked}
                     value={payment.paidDate?.split("T")[0] || ""}
                     onChange={(e) => handleChange(index, "paidDate", e.target.value)}
                     className={`w-full rounded-lg border p-2 ${
-                      !isEditable ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed" : "bg-white border-slate-300"
+                      !isRowUnlocked ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed" : "bg-white border-slate-300"
                     }`}
                   />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Status</label>
                   <select
-                    disabled={!isEditable}
+                    disabled={!isRowUnlocked}
                     value={payment.status}
                     onChange={(e) => handleChange(index, "status", e.target.value)}
                     className={`w-full rounded-lg border p-2 ${
-                      !isEditable
+                      !isRowUnlocked
                         ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
                         : payment.status === "Paid"
                         ? "bg-emerald-50 text-emerald-700 border-emerald-200"
@@ -448,11 +469,11 @@ export default function PaymentBoard() {
                 <div>
                   <label className="text-sm font-medium">Payment Mode</label>
                   <select
-                    disabled={!isEditable}
+                    disabled={!isRowUnlocked}
                     value={payment.paymentMode}
                     onChange={(e) => handleChange(index, "paymentMode", e.target.value)}
                     className={`w-full rounded-lg border p-2 ${
-                      !isEditable ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed" : "bg-white border-slate-300"
+                      !isRowUnlocked ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed" : "bg-white border-slate-300"
                     }`}
                   >
                     <option value="">Select Mode</option>
@@ -465,11 +486,11 @@ export default function PaymentBoard() {
                   <label className="text-sm font-medium">Remarks</label>
                   <input
                     type="text"
-                    disabled={!isEditable}
+                    disabled={!isRowUnlocked}
                     value={payment.remarks}
                     onChange={(e) => handleChange(index, "remarks", e.target.value)}
                     className={`w-full rounded-lg border p-2 ${
-                      !isEditable ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed" : "bg-white border-slate-300"
+                      !isRowUnlocked ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed" : "bg-white border-slate-300"
                     }`}
                   />
                 </div>

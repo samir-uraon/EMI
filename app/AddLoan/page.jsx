@@ -1,9 +1,10 @@
 "use client";
 
+import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import ScrollUp from "@/components/ScrollUp";
 
 export default function LoanForm() {
   const router = useRouter();
@@ -30,82 +31,67 @@ export default function LoanForm() {
     financeAmount: "",
     emiAmount: "",
     numberOfEmi: "",
-    emiDate: "",
-    emiStartMonth: "",
-    emiStartYear: "", // Managed seamlessly in background
+    emiDate: "",      // Due day parameter (1, 11, 21)
+    emiStartDate: "", // Complete standard string format date picker string (YYYY-MM-DD)
   });
 
-  // BACKGROUND WORKER: Computes smart calendar default allocations
+  // BACKGROUND WORKER: Computes smart calendar default allocations in HTML date format (YYYY-MM-DD)
   const getSmartDateDefaults = () => {
     const today = new Date();
     const currentDay = today.getDate();
-    let defaultMonth = today.getMonth() + 1; // 1-indexed (Jan = 1, Dec = 12)
+    let defaultMonth = today.getMonth() + 1; 
     let defaultYear = today.getFullYear();
 
-    // Rollover rule: If today passes the 21st, advance baseline to next month
     if (currentDay > 21) {
       if (defaultMonth === 12) {
         defaultMonth = 1;
-        defaultYear += 1; // December shifts into January of next year
+        defaultYear += 1; 
       } else {
         defaultMonth += 1;
       }
     }
 
-    return { 
-      month: String(defaultMonth), 
-      year: String(defaultYear) 
-    };
+    const fallbackDay = currentDay > 21 ? "01" : String(currentDay).padStart(2, "0");
+    const formattedMonth = String(defaultMonth).padStart(2, "0");
+
+    return `${defaultYear}-${formattedMonth}-${fallbackDay}`;
   };
 
   // Set initial date defaults automatically on component load
   useEffect(() => {
-    const defaults = getSmartDateDefaults();
+    const initialDate = getSmartDateDefaults();
+    const currentDay = String(Number(initialDate.split("-")[2])); // Extract day without leading zeros
+
     setForm((prev) => ({
       ...prev,
-      emiStartMonth: defaults.month,
-      emiStartYear: defaults.year,
+      emiStartDate: initialDate,
+      // Map initial day to dropdown if it hits standard cycles
+      emiDate: ["1", "11", "21"].includes(currentDay) ? currentDay : "",
     }));
   }, []);
-
-  // BACKGROUND WORKER: If user updates the month manually, sync the year logically
-  const handleMonthChange = (selectedMonthStr) => {
-    if (!selectedMonthStr) return;
-    
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth() + 1;
-    const selectedMonth = Number(selectedMonthStr);
-
-    let calculatedYear = currentYear;
-    
-    // If user picks a past month relative to current calendar progress,
-    // the application naturally targets next year's cycle execution.
-    if (selectedMonth < currentMonth) {
-      calculatedYear = currentYear + 1;
-    }
-
-    setForm((prev) => ({
-      ...prev,
-      emiStartMonth: selectedMonthStr,
-      emiStartYear: String(calculatedYear),
-    }));
-  };
 
   const handleChange = (e) => {
     const { name, value, files, type } = e.target;
 
-    // Direct routing split logic override for specific field targets
-    if (name === "emiStartMonth") {
-      handleMonthChange(value);
-      return;
-    }
-
     if (type !== "file") {
-      setForm((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
+      setForm((prev) => {
+        let updatedForm = { ...prev, [name]: value };
+
+        // SYNC LOGIC 1: If user alters the Due Day select dropdown, adjust the calendar date picker's day matching it
+        if (name === "emiDate" && value && prev.emiStartDate) {
+          const dateParts = prev.emiStartDate.split("-"); // [YYYY, MM, DD]
+          const paddedDay = String(value).padStart(2, "0");
+          updatedForm.emiStartDate = `${dateParts[0]}-${dateParts[1]}-${paddedDay}`;
+        }
+
+        // SYNC LOGIC 2: If user manually changes the full date picker, recalculate and select standard dropdown cycles
+        if (name === "emiStartDate" && value) {
+          const selectedDay = String(Number(value.split("-")[2])); // Strip leading zero for comparison
+          updatedForm.emiDate = ["1", "11", "21"].includes(selectedDay) ? selectedDay : "";
+        }
+
+        return updatedForm;
+      });
       return;
     }
 
@@ -184,8 +170,8 @@ export default function LoanForm() {
       if (data.success) {
         toast.success(`Customer ID: ${data.loanId}`);
 
-        // Recompute fresh date variables dynamically on clear actions
-        const defaults = getSmartDateDefaults();
+        const freshInitialDate = getSmartDateDefaults();
+        const freshDay = String(Number(freshInitialDate.split("-")[2]));
 
         setForm({
           customerName: "",
@@ -200,9 +186,8 @@ export default function LoanForm() {
           financeAmount: "",
           emiAmount: "",
           numberOfEmi: "",
-          emiDate: "",
-          emiStartMonth: defaults.month,
-          emiStartYear: defaults.year,
+          emiDate: ["1", "11", "21"].includes(freshDay) ? freshDay : "",
+          emiStartDate: freshInitialDate,
         });
       } else {
         toast.error(data.message);
@@ -237,18 +222,6 @@ export default function LoanForm() {
         currentForm.elements[index + 1].focus();
       }
     }
-  };
-
-  // UI DISPLAY WORKER: Helper string builder for rendering dynamic start dates inside the form view grid
-  const getFormattedEmiStartDate = () => {
-    if (!form.emiStartMonth || !form.emiStartYear) return "Select Parameters...";
-    
-    const monthsArray = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    const monthName = monthsArray[Number(form.emiStartMonth) - 1];
-    
-    // Append standard numeric suffix layouts if a specific target date exists
-    const dayPrefix = form.emiDate ? `${form.emiDate} ` : "Selected Due Date, ";
-    return `${dayPrefix}${monthName} ${form.emiStartYear}`;
   };
 
   if (status === "loading" || loading) {
@@ -450,7 +423,7 @@ export default function LoanForm() {
               </select>
             </div>
 
-            {/* EMI Date */}
+            {/* EMI Due Date (Dropdown Selector) */}
             <div>
               <label className="font-medium text-gray-700">EMI Due Date<span className="text-red-500">*</span></label>
               <select
@@ -460,39 +433,23 @@ export default function LoanForm() {
                 className="w-full border rounded-lg p-2 mt-1 text-black bg-white focus:outline-blue-500"
                 required
               >
-                <option value="">Select EMI Date</option>
+                <option value="">Select Due Day</option>
                 <option value="1">1st</option>
                 <option value="11">11th</option>
                 <option value="21">21st</option>
               </select>
             </div>
 
-            {/* Month Selection Field */}
+            {/* EMI Start Date (Calendar Date Picker) */}
             <div>
-              <label className="font-medium text-gray-700">EMI Start Month <span className="text-red-500">*</span></label>
-              <select
-                name="emiStartMonth"
-                value={form.emiStartMonth}
-                onChange={handleChange}
-                className="w-full border rounded-lg p-2 mt-1 text-black bg-white focus:outline-blue-500"
-                required
-              >
-                <option value="">Select Month</option>
-                {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map((month, index) => (
-                  <option key={index} value={index + 1}>{month}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Unified Calculated Date Slot (Replaced Year drop-down field block slot) */}
-            <div>
-              <label className="font-medium text-gray-700">Calculated EMI Start Date</label>
+              <label className="font-medium text-gray-700">EMI Start Date<span className="text-red-500">*</span></label>
               <input
-                type="text"
-                readOnly
-                value={getFormattedEmiStartDate()}
-                className="w-full border rounded-lg p-2 mt-1 text-gray-600 bg-gray-100 cursor-not-allowed font-medium"
-                placeholder="Select date inputs above..."
+                type="date"
+                name="emiStartDate"
+                value={form.emiStartDate}
+                onChange={handleChange}
+                className="w-full border rounded-lg p-2 mt-1 text-black bg-white focus:outline-blue-500 font-medium"
+                required
               />
             </div>
 
@@ -582,6 +539,7 @@ export default function LoanForm() {
           </form>
         </div>
       </div>
+  
     </div>
   );
 }

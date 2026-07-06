@@ -90,18 +90,31 @@ export async function POST(req) {
     // 4. Financial Calculations and Schedule Engine
     const numberOfEmi = Number(formData.get("numberOfEmi"));
     const emiAmount = Number(formData.get("emiAmount"));
-    const emiDate = Number(formData.get("emiDate"));
+    const emiDate = Number(formData.get("emiDate")); // Explicit Day Parameter
     const totalLoanAmount = emiAmount * numberOfEmi;
 
-    const emiStartMonth = Number(formData.get("emiStartMonth")); // 1-12 range
-    const emiStartYear = Number(formData.get("emiStartYear"));
+    // Read unified emiStartDate string (Format: YYYY-MM-DD)
+    const emiStartDateStr = formData.get("emiStartDate"); 
+    if (!emiStartDateStr) {
+      return NextResponse.json(
+        { success: false, message: "EMI Start Date is required." },
+        { status: 400 }
+      );
+    }
+
+    // Parse out year and month parameters directly from string safely
+    const parsedStartDate = new Date(emiStartDateStr);
+    const emiStartYear = parsedStartDate.getFullYear();
+    const emiStartMonth = parsedStartDate.getMonth() + 1; // Convert 0-11 index back to 1-12 tracking values
 
     const payments = [];
 
-    // Safely generate payment schedule tracking arrays with monthly loops
     for (let i = 0; i < numberOfEmi; i++) {
-      // JavaScript Date handles rolling overflow natively (e.g. Month 12 rolls year over)
-      const dueDate = new Date(emiStartYear, (emiStartMonth - 1) + i, emiDate);
+      const year = emiStartYear + Math.floor((emiStartMonth - 1 + i) / 12);
+      const month = (emiStartMonth - 1 + i) % 12;
+
+      // Generates payment milestone schedule objects anchored into the chosen emiDate configuration day
+      const dueDate = new Date(year, month, emiDate, 12, 0, 0);
 
       payments.push({
         emiNo: i + 1,
@@ -129,6 +142,7 @@ export async function POST(req) {
       emiAmount: emiAmount,
       numberOfEmi: numberOfEmi,
       emiDate: emiDate,
+      emiStartDate: emiStartDateStr, // Log complete reference string directly into records
       
       // Saved as URL arrays
       productPhoto: productPhotoUrls,
@@ -148,7 +162,7 @@ export async function POST(req) {
       fineAmount: 0,
       fineCount: 0,
 
-      // EMI Schedule
+      // EMI Schedule Reference Snapshots
       payments,
       emiStartMonth,
       emiStartYear,
