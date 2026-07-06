@@ -60,60 +60,79 @@ export default function PaymentBoard() {
     }
   };
 
-  const activeBatch = originalPayments.filter(
-    (payment) => payment.status === "Pending"
-  ).length;
+// Stable index baseline from database
+const currentEmiIndex = originalPayments.findIndex(
+  (payment) => payment.status === "Pending"
+);
 
-  const completedBatch = originalPayments.filter(
-    (payment) => payment.status === "Paid" || payment.status === "Late"
-  ).length;
+// 1. Active EMI Count: Only count "Pending" up to the current active EMI index
+const activeBatch = payments.filter((payment, index) => {
+  if (payment.status !== "Pending") return false;
+  return currentEmiIndex === -1 || index <= currentEmiIndex;
+}).length;
 
-  const currentEmiIndex = originalPayments.findIndex(
-    (payment) => payment.status === "Pending"
+// 2. Completed EMI Count: Only count paid rows up to the current active EMI index
+const completedBatch = payments.filter((payment, index) => {
+  if (payment.status !== "Paid" && payment.status !== "Late") return false;
+  return currentEmiIndex === -1 || index <= currentEmiIndex;
+}).length;
+
+const handleChange = (index, field, value) => {
+  const updated = [...payments];
+  updated[index][field] = value;
+
+  // IF STATUS CHANGES TO PENDING: Automatically clear out date and mode fields
+  if (field === "status" && value === "Pending") {
+    updated[index].paidDate = "";
+    updated[index].paymentMode = "";
+    updated[index].finePaid = false;
+  } else if (field === "status") {
+    updated[index].finePaid = value === "Late";
+  }
+
+  setPayments(updated);
+};
+
+const isRowChanged = (index) => {
+  const current = payments[index];
+  const original = originalPayments[index];
+  if (!current || !original) return false;
+
+  const currentPaidDate = current.paidDate?.split("T")[0] || "";
+  const originalPaidDate = original.paidDate?.split("T")[0] || "";
+
+  return (
+    current.status !== original.status ||
+    current.paymentMode !== original.paymentMode ||
+    currentPaidDate !== originalPaidDate ||
+    current.remarks !== original.remarks
   );
+};
 
-  const handleChange = (index, field, value) => {
-    const updated = [...payments];
-    updated[index][field] = value;
+const isRowValid = (index) => {
+  const payment = payments[index];
+  if (!payment) return false;
+  
+  const currentPaidDate = payment.paidDate?.split("T")[0] || "";
 
-    if (field === "status") {
-      updated[index].finePaid = value === "Late";
-    }
+  // 1. If Pending: It is valid immediately because handleChange auto-cleared the other fields
+  if (payment.status === "Pending") {
+    return currentPaidDate.trim() === "" && (payment.paymentMode || "").trim() === "";
+  }
 
-    setPayments(updated);
-  };
-
-  const isRowChanged = (index) => {
-    const current = payments[index];
-    const original = originalPayments[index];
-    if (!current || !original) return false;
-
-    const currentPaidDate = current.paidDate?.split("T")[0] || "";
-    const originalPaidDate = original.paidDate?.split("T")[0] || "";
-
-    return (
-      current.status !== original.status ||
-      current.paymentMode !== original.paymentMode ||
-      currentPaidDate !== originalPaidDate
-    );
-  };
-
-  const isRowValid = (index) => {
-    const payment = payments[index];
-    if (!payment) return false;
-    const currentPaidDate = payment.paidDate?.split("T")[0] || "";
-
-    if (payment.status === "Pending") return true;
-
-    return (
-      (payment.status === "Paid" || payment.status === "Late") &&
-      currentPaidDate !== "" &&
-      payment.paymentMode !== ""
-    );
-  };
+  // 2. If Paid or Late: Valid ONLY if BOTH fields are fully selected/filled out
+  return (
+    (payment.status === "Paid" || payment.status === "Late") &&
+    currentPaidDate.trim() !== "" &&
+    payment.paymentMode !== undefined &&
+    payment.paymentMode.trim() !== ""
+  );
+};
 
   const handleSave = async (index) => {
     try {
+      const targetPayment = payments[index];
+
       const isNowCompleted = payments.every(
         (p) => p.status === "Paid" || p.status === "Late"
       );
@@ -134,19 +153,24 @@ export default function PaymentBoard() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ payments }),
+        body: JSON.stringify({ 
+          payment: targetPayment,
+          paymentIndex: index 
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || "Failed to update payments");
+        throw new Error(data.message || "Failed to update payment");
       }
 
-      toast.success("Payments Updated Successfully");
-      setOriginalPayments(structuredClone(payments));
+      toast.success(`EMI #${targetPayment.emiNo} Updated Successfully`);
       
-      // Relock row upon clean submission
+      const updatedOriginals = [...originalPayments];
+      updatedOriginals[index] = structuredClone(targetPayment);
+      setOriginalPayments(updatedOriginals);
+      
       setUnlockedRows((prev) => ({ ...prev, [index]: false }));
     } catch (error) {
       router.push("/TotalCustomer");
@@ -160,6 +184,17 @@ export default function PaymentBoard() {
     setUnlockedRows((prev) => ({
       ...prev,
       [index]: !prev[index],
+    }));
+  };
+
+  const handleCancel = (index) => {
+    const reverted = [...payments];
+    reverted[index] = structuredClone(originalPayments[index]);
+    setPayments(reverted);
+
+    setUnlockedRows((prev) => ({
+      ...prev,
+      [index]: false,
     }));
   };
 
@@ -232,10 +267,7 @@ export default function PaymentBoard() {
                 const isPastEmi = currentEmiIndex !== -1 && index < currentEmiIndex;
                 const isLoanCompleted = currentEmiIndex === -1;
                 
-                // Unlocked IF: Current active EMI row OR if manually unlocked via "Edit" button
                 const isRowUnlocked = isCurrentEmi || !!unlockedRows[index];
-
-                // PERFECTED CONDITION: Show buttons ONLY for the current EMI row, past EMI rows, or if the loan is completely closed
                 const showActionBtn = isCurrentEmi || isPastEmi || isLoanCompleted;
 
                 const rowChanged = isRowChanged(index);
@@ -327,17 +359,27 @@ export default function PaymentBoard() {
                     <td className="px-4 py-3 text-center">
                       {showActionBtn ? (
                         isRowUnlocked ? (
-                          <button
-                            disabled={!rowChanged || !rowValid}
-                            onClick={() => handleSave(index)}
-                            className={`w-full py-1.5 rounded text-xs font-semibold tracking-wide transition border ${
-                              rowChanged && rowValid
-                                ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-700 shadow-sm"
-                                : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-                            }`}
-                          >
-                            💾 Save Changes
-                          </button>
+                          <div className="flex flex-col gap-1">
+                            <button
+                              disabled={!rowChanged || !rowValid}
+                              onClick={() => handleSave(index)}
+                              className={`w-full py-1.5 rounded text-xs font-semibold tracking-wide transition border ${
+                                rowChanged && rowValid
+                                  ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-700 shadow-sm"
+                                  : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                              }`}
+                            >
+                              💾 Save
+                            </button>
+                            {!isCurrentEmi && (
+                              <button
+                                onClick={() => handleCancel(index)}
+                                className="w-full py-1.5 rounded text-xs font-semibold tracking-wide transition border bg-rose-100 hover:bg-rose-200 text-rose-700 border-rose-300 shadow-sm"
+                              >
+                                ❌ Cancel
+                              </button>
+                            )}
+                          </div>
                         ) : (
                           <button
                             onClick={() => toggleEditRow(index)}
@@ -378,17 +420,27 @@ export default function PaymentBoard() {
                 <div className="flex items-center gap-2">
                   {showActionBtn ? (
                     isRowUnlocked ? (
-                      <button
-                        disabled={!rowChanged || !rowValid}
-                        onClick={() => handleSave(index)}
-                        className={`px-3 py-1 rounded text-xs font-semibold border transition ${
-                          rowChanged && rowValid
-                            ? "bg-blue-600 text-white border-blue-700"
-                            : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-                        }`}
-                      >
-                        Save
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          disabled={!rowChanged || !rowValid}
+                          onClick={() => handleSave(index)}
+                          className={`px-3 py-1 rounded text-xs font-semibold border transition ${
+                            rowChanged && rowValid
+                              ? "bg-blue-600 text-white border-blue-700"
+                              : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                          }`}
+                        >
+                          Save
+                        </button>
+                        {!isCurrentEmi && (
+                          <button
+                            onClick={() => handleCancel(index)}
+                            className="px-3 py-1 rounded text-xs font-semibold border transition bg-rose-100 text-rose-700 border-rose-300"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <button
                         onClick={() => toggleEditRow(index)}
