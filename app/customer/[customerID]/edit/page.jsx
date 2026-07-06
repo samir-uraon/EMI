@@ -10,6 +10,7 @@ import { useSession } from "next-auth/react";
 export default function EditCustomer() {
   const { customerID } = useParams();
   const router = useRouter();
+  const [previewImage, setPreviewImage] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [initialForm, setInitialForm] = useState(null);
@@ -317,14 +318,13 @@ export default function EditCustomer() {
                             className="w-full h-full object-cover transition-all duration-300 brightness-50 sm:brightness-100 sm:group-hover/thumb:brightness-50"
                           />
                           <div className="absolute inset-0 flex items-center justify-center bg-black/30 sm:bg-transparent opacity-100 sm:opacity-0 sm:group-hover/thumb:opacity-100 transition-opacity duration-300">
-                            <a
-                              href={photo}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="bg-white/95 text-gray-800 text-[11px] px-2.5 py-1 rounded-md shadow-md font-semibold hover:bg-white flex items-center gap-1 scale-100 sm:scale-90 sm:group-hover/thumb:scale-100 transition-transform duration-200"
-                            >
-                              👁 View
-                            </a>
+                              <button
+  type="button"
+  onClick={() => setPreviewImage(photo)}
+              className="bg-white text-gray-800 text-xs px-2.5 py-1.5 rounded-md shadow font-semibold hover:bg-gray-100 transition-colors"
+            >
+              👁 View
+            </button>
                           </div>
                         </>
                       ) : (
@@ -386,14 +386,13 @@ export default function EditCustomer() {
                           className="w-full h-full object-cover transition-all duration-300 brightness-50 sm:brightness-100 sm:group-hover/thumb:brightness-50"
                         />
                         <div className="absolute inset-0 flex items-center justify-center bg-black/30 sm:bg-transparent opacity-100 sm:opacity-0 sm:group-hover/thumb:opacity-100 transition-opacity duration-300">
-                          <a
-                            href={photo}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="bg-white/95 text-gray-800 text-[11px] px-2.5 py-1 rounded-md shadow-md font-semibold hover:bg-white flex items-center gap-1 scale-100 sm:scale-90 sm:group-hover/thumb:scale-100 transition-transform duration-200"
-                          >
-                            👁 View
-                          </a>
+                  <button
+  type="button"
+  onClick={() => setPreviewImage(photo)}
+              className="bg-white text-gray-800 text-xs px-2.5 py-1.5 rounded-md shadow font-semibold hover:bg-gray-100 transition-colors"
+            >
+              👁 View
+            </button>
                         </div>
                       </>
                     ) : (
@@ -525,6 +524,29 @@ export default function EditCustomer() {
 
         </form>
       </div>
+      {previewImage && (
+  <div
+    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+    onClick={() => setPreviewImage(null)}
+  >
+    <div className="relative">
+      <img
+        src={previewImage}
+        alt="Preview"
+        className="max-w-[90vw] max-h-[90vh] rounded-lg"
+      />
+
+      <button
+        type="button"
+        onClick={() => setPreviewImage(null)}
+        className="absolute top-2 right-2 bg-red-600 text-white px-3 py-1 rounded"
+      >
+        ✕
+      </button>
+    </div>
+  </div>
+)}
+
       <ScrollUp />
     </div>
   );

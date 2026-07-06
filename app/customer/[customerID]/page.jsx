@@ -9,6 +9,7 @@ import ScrollUp from "@/components/ScrollUp";
 export default function LoanDetails() {
   const { customerID } = useParams();
   const router = useRouter();
+const [preview, setPreview] = useState(null);
 
   const { data: session, status } = useSession({
     required: true,
@@ -82,44 +83,43 @@ export default function LoanDetails() {
   };
 
   const handleGeneratePDF = async () => {
-    const formatted = new Date(loan?.createdAt).toLocaleDateString("en-GB");
+  const formatted = new Date(loan?.createdAt).toLocaleDateString("en-GB");
 
-    const customer = {
-      name: loan?.customerName,
-      date: formatted,
-      product: loan?.productName,
-      price: loan?.productPrice,
-      downPayment: loan?.downPayment,
-      balance: loan?.financeAmount,
-      emiAmount: loan?.emiAmount,
-      numberOfEmi: loan?.numberOfEmi,
-    };
-
-    try {
-      const res = await fetch("/api/pdf", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(customer),
-      });
-
-      if (!res.ok) throw new Error("Failed to generate PDF");
-
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "EMI.pdf";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error(err);
-      alert("Unable to generate PDF");
-    }
+  const customer = {
+    name: loan?.customerName,
+    date: formatted,
+    product: loan?.productName,
+    price: loan?.productPrice,
+    downPayment: loan?.downPayment,
+    balance: loan?.financeAmount,
+    emiAmount: loan?.emiAmount,
+    numberOfEmi: loan?.numberOfEmi,
   };
+
+  try {
+    const res = await fetch("/api/pdf", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(customer),
+    });
+
+    if (!res.ok) throw new Error("Failed to generate PDF");
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+
+    // Preview PDF
+    window.open(url, "_blank");
+
+    // Clean up after a short delay
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (err) {
+    console.error(err);
+    alert("Unable to generate PDF");
+  }
+};
 
   const idProofs = Array.isArray(loan?.customerIdProof)
     ? loan?.customerIdProof
@@ -176,9 +176,9 @@ export default function LoanDetails() {
               <h2 className="text-xl font-bold">👤 Customer Details</h2>
               <button
                 onClick={handleEditCustomer}
-                className="flex items-center gap-2 bg-slate-400 hover:bg-slate-500 text-white px-4 py-2 rounded-lg transition"
+                className="flex items-center gap-2 bg-slate-400 hover:bg-slate-500 text-white px-3 py-1 rounded-lg transition"
               >
-                ✏️ Edit
+                EDIT
               </button>
             </div>
             
@@ -233,14 +233,13 @@ export default function LoanDetails() {
           />
           {/* Always visible on mobile (opacity-100), fades in on desktop hover (sm:opacity-0 sm:group-hover:opacity-100) */}
           <div className="absolute inset-0 flex items-center justify-center bg-black/30 sm:bg-transparent opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
-            <a
-              href={photo}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+  type="button"
+  onClick={() => setPreview(photo)}
               className="bg-white text-gray-800 text-xs px-2.5 py-1.5 rounded-md shadow font-semibold hover:bg-gray-100 transition-colors"
             >
               👁 View
-            </a>
+            </button>
           </div>
         </div>
       ))}
@@ -271,14 +270,13 @@ export default function LoanDetails() {
           />
           {/* Always visible on mobile (opacity-100), fades in on desktop hover (sm:opacity-0 sm:group-hover:opacity-100) */}
           <div className="absolute inset-0 flex items-center justify-center bg-black/30 sm:bg-transparent opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
-            <a
-              href={photo}
-              target="_blank"
-              rel="noopener noreferrer"
+                    <button
+  type="button"
+  onClick={() => setPreview(photo)}
               className="bg-white text-gray-800 text-xs px-2.5 py-1.5 rounded-md shadow font-semibold hover:bg-gray-100 transition-colors"
             >
               👁 View
-            </a>
+            </button>
           </div>
         </div>
       ))}
@@ -408,6 +406,29 @@ export default function LoanDetails() {
             </button>
           </div>
         </div>
+        
+        {preview && (
+  <div
+    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+    onClick={() => setPreview(null)}
+  >
+    <div className="relative">
+      <img
+        src={preview}
+        alt="Preview"
+        className="max-w-[90vw] max-h-[90vh] rounded-lg"
+      />
+
+      <button
+        type="button"
+        onClick={() => setPreview(null)}
+        className="absolute top-2 right-2 bg-red-600 text-white px-3 py-1 rounded"
+      >
+        ✕
+      </button>
+    </div>
+  </div>
+)}
       </div>
       <ScrollUp />
     </>

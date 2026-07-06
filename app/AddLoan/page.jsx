@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 
 export default function LoanForm() {
 	const router = useRouter();
+  const [previewImage, setPreviewImage] = useState(null);
 
 const { status } = useSession({
   required: true,
@@ -287,10 +288,7 @@ if (status === "loading" || loading) {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => {
-              const url = URL.createObjectURL(file);
-              window.open(url, "_blank");
-            }}
+          onClick={() => setPreviewImage(URL.createObjectURL(file))}
             className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
             View
@@ -503,19 +501,27 @@ if (status === "loading" || loading) {
     {form.customerIdProof.map((file, index) => (
       <div
         key={index}
-        className="flex items-center justify-between border rounded-lg p-2"
+        className="flex items-center justify-between border rounded-lg p-2 bg-gray-50"
       >
-        <span className="text-sm text-gray-700 truncate">
-          {file.name}
-        </span>
+        <span className="truncate text-sm">{file.name}</span>
 
-        <button
-          type="button"
-          onClick={() => window.open(URL.createObjectURL(file), "_blank")}
-          className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-        >
-          View
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+  onClick={() => setPreviewImage(URL.createObjectURL(file))}
+            className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            View
+          </button>
+
+          <button
+            type="button"
+            onClick={() => removeFile("customerIdProof", index)}
+            className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Delete
+          </button>
+        </div>
       </div>
     ))}
   </div>
@@ -526,7 +532,28 @@ if (status === "loading" || loading) {
   </p>
 </div>
 
-        
+    {previewImage && (
+  <div
+    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+    onClick={() => setPreviewImage(null)}
+  >
+    <div className="relative">
+      <img
+        src={previewImage}
+        alt="Preview"
+        className="max-w-[90vw] max-h-[90vh] rounded-lg"
+      />
+
+      <button
+        type="button"
+        onClick={() => setPreviewImage(null)}
+        className="absolute top-2 right-2 bg-red-600 text-white px-3 py-1 rounded"
+      >
+        ✕
+      </button>
+    </div>
+  </div>
+)}      
 
           {/* Button */}
           <div className="md:col-span-2">
