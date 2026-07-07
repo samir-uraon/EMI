@@ -43,6 +43,7 @@ export async function GET(req) {
           _id: {
             $in: user.loans.map((id) => new ObjectId(id)),
           },
+           removeMark: { $ne: true },
         })
         .toArray();
     }
@@ -91,9 +92,25 @@ export async function POST(req) {
     const db = client.db(process.env.MONGODB_DB);
 
     // Find loan
-    const loan = await db.collection("loans").findOne({
-      customerId: Number(customerId),
-    });
+  const loan = await db.collection("loans").findOne({
+  customerId: Number(customerId),
+});
+
+if (!loan) {
+  return NextResponse.json(
+    { success: false, message: "Loan not found" },
+    { status: 404 }
+  );
+}
+
+await db.collection("loans").updateOne(
+  { _id: loan._id },
+  {
+    $set: {
+      removeMark: true,
+    },
+  }
+);
 
     if (!loan) {
       return Response.json(
@@ -113,11 +130,11 @@ export async function POST(req) {
     $pull: {
       loans: loan._id,
     },
-    $set: {
-      removeMark: true,
-    },
+  
   }
 );
+
+
 
     return Response.json({
       success: true,

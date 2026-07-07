@@ -124,7 +124,7 @@ export async function POST(req) {
         paidDate: null,
         fine: 200,
         finePaid: false,
-        removeMark: false,
+        
       });
     }
 
@@ -147,7 +147,7 @@ export async function POST(req) {
       // Saved as URL arrays
       productPhoto: productPhotoUrls,
       customerIdProof: customerIdProofUrls,
-      
+      removeMark: false,
       salesmanName: session.user.name,
       salesmanID: session.user.id,
       status: "Active",
