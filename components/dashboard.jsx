@@ -210,6 +210,8 @@ const overdueCustomers = activeLoans?.filter((loan) => {
 });
 
 
+
+
 const displayedOverdueCustomers = overdueCustomers?.slice(0, 3);
 
 if (status === "loading" || loading || !user) {

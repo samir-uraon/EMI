@@ -167,9 +167,6 @@ const progress =
 
 
 
-
-
-
 const upcomingLoans = activeLoans
   ?.map((loan) => {
     const nextPending = loan.payments?.find(
@@ -187,16 +184,25 @@ const upcomingLoans = activeLoans
 
 
 
-		const displayedUpcomingCustomers = upcomingLoans?.sort((a,b) => a.upcomingDate - b.upcomingDate) // Shuffle
+  const displayedUpcomingCustomers = upcomingLoans?.sort((a,b) => a.upcomingDate - b.upcomingDate) // Shuffle
   .slice(0, 3);
 
 
-const overdueCustomers = activeLoans
-		?.filter((loan) => loan.emiDate <= currentDay)
+
+const overdueCustomers = activeLoans?.filter((loan) => {
+  const nextPending = loan.payments?.find(
+    (payment) => payment.status === "Pending"
+  );
+
+  if (!nextPending) return false;
+
+  return new Date(nextPending.dueDate) <= today;
+});
 
 
-const displayedOverdueCustomers = overdueCustomers?.slice(0,3)
 
+
+const displayedOverdueCustomers = overdueCustomers?.slice(0, 3);
 if (status === "loading" || loading || !user) {
 		return (
 				<div className="min-h-screen flex items-center justify-center bg-gray-100">
