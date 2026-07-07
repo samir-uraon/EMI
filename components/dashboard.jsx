@@ -55,8 +55,8 @@ useEffect(() => {
       setUser(data.user);
       setLoans(data.loans)
     } catch (error) {
-      //await signOut({ callbackUrl: "/login" });
-      //  return;
+      await signOut({ callbackUrl: "/login" });
+        return;
 
     } finally {
       setLoading(false);

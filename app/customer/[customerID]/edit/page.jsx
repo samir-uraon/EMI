@@ -207,14 +207,14 @@ export default function EditCustomer() {
         type="file" 
         ref={idProofInputRef} 
         onChange={(e) => handleFileChange(e, "idProof")} 
-        accept="image/*" 
+      accept=".jpg,.jpeg,.png,.pdf" 
         className="hidden" 
       />
       <input 
         type="file" 
         ref={productPhotoInputRef} 
         onChange={(e) => handleFileChange(e, "productPhoto")} 
-        accept="image/*" 
+        accept=".jpg,.jpeg,.png,.pdf"
         className="hidden" 
       />
 

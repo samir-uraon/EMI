@@ -1,146 +1,104 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb"; 
 
+
 export async function GET() {
   try {
-
     const client = await clientPromise;
-    const db = client.db(process.env.MONGODB_DB); // or client.db("your_database_name")
+    const db = client.db(process.env.MONGODB_DB);
 
-    const customers = await db.collection("loans").find({}).toArray();
-    const salesmen = await db.collection("users").find({}).toArray();
+    // Fetch collections concurrently to save time
+    const [customers, salesmen] = await Promise.all([
+      db.collection("loans").find({}).toArray(),
+      db.collection("users").find({}).toArray(),
+    ]);
 
     let totalOutstanding = 0;
     let monthlyEMI = 0;
     let overdueEMI = 0;
     let activeLoans = 0;
-				let totalLoanAmount=0;
-        let totalFine=0;
+    let totalLoanAmount = 0;
+    let totalFine = 0;
+    let monthlyCollection = 0;
 
     const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
 
-
-  
-    
-
+    // Single-pass loop through all customers
     customers.forEach((customer) => {
-        if (customer.status !== "Active" || customer.removeMark) return;
-  // Total Loan Amount
-  totalLoanAmount += Number(customer.totalLoanAmount || 0);
+      if (customer.status !== "Active" || customer.removeMark) return;
 
-  // Outstanding Amount
-  totalOutstanding +=
-    Number(customer.totalLoanAmount || 0) -
-    Number(customer.totalPaid || 0);
+      activeLoans++;
+      totalLoanAmount += Number(customer.totalLoanAmount || 0);
+      totalOutstanding += Number(customer.totalLoanAmount || 0) - Number(customer.totalPaid || 0);
 
+      // Process payments array safely
+      if (Array.isArray(customer.payments)) {
+        let foundPending = false;
 
-  // Active Loans
-  if (customer.status === "Active" && !customer.removeMark) {
-    activeLoans++;
-  }
+        customer.payments.forEach((payment) => {
+          // 1. Calculate Overdue EMIs (Only checks the first pending payment found)
+          if (!foundPending && payment.status === "Pending") {
+            foundPending = true; 
+            if (payment.dueDate) {
+              const dueDate = new Date(payment.dueDate);
+              if (today >= dueDate) {
+                overdueEMI++;
+              }
+            }
+          }
 
+          // 2. Calculate Monthly Collection (based on paid date)
+          if (payment.paidDate) {
+            const paidDate = new Date(payment.paidDate);
+            if (paidDate.getMonth() === currentMonth && paidDate.getFullYear() === currentYear) {
+              monthlyCollection += Number(payment.amount || 0);
+            }
+          }
 
-  
-  customers.forEach((customer) => {
-  if (customer.status !== "Active" || customer.removeMark) return;
+          // 3. Calculate Total Fines Collected
+          if (payment.finePaid && payment.status !== "Pending") {
+            totalFine += Number(payment.fine || 0);
+          }
 
-  const nextPending = customer.payments?.find(
-    (payment) => payment.status === "Pending"
-  );
+          // 4. Calculate Expected Monthly EMI (based on due date)
+          if (payment.dueDate) {
+            const dueDate = new Date(payment.dueDate);
+            if (dueDate.getMonth() === currentMonth && dueDate.getFullYear() === currentYear) {
+              monthlyEMI += Number(payment.amount || 0);
+            }
+          }
+        });
+      }
+    });
 
-  if (!nextPending) return;
-
-  const dueDate = new Date(nextPending.dueDate);
-
-  if (today >= dueDate) {
-    overdueEMI++;
-  }
-});
-
-
-});
-
-
-let monthlyCollection = 0;
-
-
-
-customers.forEach((customer) => {
-    if (customer.status !== "Active" || customer.removeMark) return;
-  customer.payments?.forEach((payment) => {
-    if (!payment.paidDate) return;
-
-    const paidDate = new Date(payment.paidDate);
-
-    if (
-      paidDate.getMonth() === today.getMonth() &&
-      paidDate.getFullYear() === today.getFullYear()
-    ) {
-      monthlyCollection += Number(payment.amount || 0);
-    }
-  });
-});
-
-
-customers.forEach((customer) => {
-  if (customer.status !== "Active" || customer.removeMark) return;
-    customer.payments?.forEach((payment) => {
-    if (!payment.finePaid || payment.status === "Pending") return;
-
-    totalFine+=payment.fine||0
-
-      });
-});
-
-  // Monthly EMI
-  customers.forEach((customer) => {
-    if (customer.status !== "Active" || customer.removeMark) return;
-  customer.payments?.forEach((payment) => {
-    if (!payment.dueDate) return;
-
-    const dueDate = new Date(payment.dueDate);
-
-    if (
-      dueDate.getMonth() === today.getMonth() &&
-      dueDate.getFullYear() === today.getFullYear()
-    ) {
-      monthlyEMI += Number(payment.amount || 0);
-    }
-  });
-});
-
-
-let remain=0;
-
-remain=monthlyEMI-monthlyCollection
-
+    const remain = monthlyEMI - monthlyCollection;
 
     return NextResponse.json({
       success: true,
       totalCustomers: customers.length,
       totalSalesman: salesmen.length,
       totalOutstanding,
-						totalLoanAmount,
-						totalLoans:customers.length,
-						completedLoans:customers.length-activeLoans,
-            monthlyCollection,
-            remain,
+      totalLoanAmount,
+      totalLoans: customers.length,
+      completedLoans: customers.length - activeLoans,
+      monthlyCollection,
+      remain,
       monthlyEMI,
       overdueEMI,
       activeLoans,
-      totalFine
+      totalFine,
     });
-  } catch (error) {
 
-    console.log(error);
-    
+  } catch (error) {
+    console.error("API Error:", error);
     return NextResponse.json(
       {
         success: false,
-        message: error.message,
+        message: error instanceof Error ? error.message : "Internal Server Error",
       },
       { status: 500 }
     );
   }
 }
-

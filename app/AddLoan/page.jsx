@@ -309,7 +309,7 @@ export default function LoanForm() {
               <input
                 type="file"
                 name="productPhoto"
-                accept=".png,.jpg,.jpeg"
+                accept=".jpg,.jpeg,.png,.pdf"
                 multiple
                 onChange={handleChange}
                 className="w-full border rounded-lg p-2 mt-1 text-black bg-white focus:outline-blue-500"
@@ -459,7 +459,7 @@ export default function LoanForm() {
               <input
                 type="file"
                 name="customerIdProof"
-                accept=".png,.jpg,.jpeg"
+                accept=".jpg,.jpeg,.png,.pdf"
                 multiple
                 onChange={handleChange}
                 className="w-full border rounded-lg p-2 mt-1 text-black bg-white focus:outline-blue-500"

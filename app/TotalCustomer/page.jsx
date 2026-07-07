@@ -315,7 +315,11 @@ if (status === "loading" || loading){
     </p>
 
     <p>
-      <span className="font-semibold">Mobile:</span> {customer.mobile}
+      <span className="font-semibold">EMI Start:</span> {new Date(customer.payments[0]?.dueDate).toLocaleDateString("en-GB", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+})}
     </p>
 
     <p>
