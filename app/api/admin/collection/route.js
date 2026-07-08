@@ -44,6 +44,24 @@ export async function GET() {
       };
     });
 
+    const collections = await db.collection("collections").find().toArray();
+
+let totalPaidAmount = 0;
+let totalTaken = 0;
+let totalTakenCount=0;
+
+// Total paid by customers (from loans)
+loans.forEach((loan) => {
+  totalPaidAmount += Number(loan.totalPaid || 0);
+});
+
+// Total taken/collected (from collections)
+collections.forEach((item) => {
+  totalTaken += Number(item.amount || 0);
+});
+
+totalTakenCount=collections.length
+
     // 3. Single-Pass Execution ($O(N)$ efficiency)
     loans.forEach((loan) => {
       const loanDayStr = String(loan.emiDate);
@@ -131,9 +149,12 @@ export async function GET() {
       stats: {
         cash: { amount: cashAmount, count: cashCount },
         upi: { amount: upiAmount, count: upiCount },
+        totalTaken,
+        totalTakenCount
       },
       transactions,
       dates,
+      
     });
 
   } catch (error) {
@@ -147,3 +168,4 @@ export async function GET() {
     );
   }
 }
+

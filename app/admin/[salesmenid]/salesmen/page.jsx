@@ -335,6 +335,7 @@ if (status === "loading" || loading || !user) {
       <thead>
         <tr className="border-b text-left text-gray-600">
           <th className="py-3 px-2">Customer</th>
+            <th className="py-3 px-2">SalesMen</th>
           <th className="px-2">Date</th>
           <th className="px-2">EMI</th>
           <th className="px-2">Status</th>
@@ -351,6 +352,9 @@ if (status === "loading" || loading || !user) {
             >
               <td className="py-3 px-2 font-medium">
                 {loan.customerName}
+              </td>
+                <td className="py-3 px-2 font-medium">
+                {loan.salesmanName}
               </td>
 
               <td className="px-2">
@@ -407,7 +411,9 @@ if (status === "loading" || loading || !user) {
               Pending
             </span>
           </div>
-
+  <h3 className="font-semibold text-base">
+              {loan.salesmanName}
+            </h3>
           <div className="mt-3 text-sm text-gray-600 space-y-1">
             <p>
               <span className="font-medium">Date:</span>{" "}
@@ -510,7 +516,9 @@ if (status === "loading" || loading || !user) {
               Overdue
             </span>
           </div>
-
+  <h3 className="font-semibold text-slate-800">
+              {loan.salemanName}
+            </h3>
           <div className="mt-3 space-y-2 text-sm text-gray-600">
             <div className="flex justify-between">
               <span>Date</span>
@@ -549,6 +557,7 @@ if (status === "loading" || loading || !user) {
       <thead>
         <tr className="border-b text-left text-gray-600">
           <th className="py-2">Customer</th>
+          <th>SalesMen</th>
           <th>Date</th>
           <th>EMI</th>
           <th>Status</th>
@@ -567,6 +576,9 @@ if (status === "loading" || loading || !user) {
             >
               <td className="py-3 font-medium">
                 {loan.customerName}
+              </td>
+                <td className="py-3 font-medium">
+                {loan.salesmanName}
               </td>
 
               <td>

@@ -260,7 +260,8 @@ const handleKeyDown = (e) => {
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               required
-          
+          minLength={10}
+          maxLength={10}
               className="w-full border border-gray-300 rounded-xl px-4 py-3 text-black text-sm sm:text-base focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 outline-none transition-all duration-200"
             />
           )}

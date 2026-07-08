@@ -107,6 +107,7 @@ const overdueCustomers = useMemo(() => {
               <tr>
                 <th className="text-left px-5 py-4">Customer</th>
                 <th className="text-left px-5 py-4">Mobile</th>
+                {isAdmin?<th className="text-left px-5 py-4">SalesMen</th>:""}
                 <th className="text-left px-5 py-4">EMI Date</th>
                 <th className="text-left px-5 py-4">EMI</th>
                 <th className="text-left px-5 py-4">Outstanding</th>
@@ -130,7 +131,10 @@ const overdueCustomers = useMemo(() => {
                     <td className="px-5 py-4">
                       {loan.mobile}
                     </td>
-
+{isAdmin &&
+  <td className="px-5 py-4">
+                      {loan.salesmanName}
+                    </td>}
                     <td className="px-5 py-4">
             
   {new Date(
@@ -198,6 +202,9 @@ const overdueCustomers = useMemo(() => {
 
               <p className="text-sm text-gray-500">
                 {loan.mobile}
+              </p>
+                <p className="text-sm text-gray-500">
+                {loan.salesmanName}
               </p>
             </div>
 

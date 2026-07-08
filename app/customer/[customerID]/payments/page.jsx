@@ -224,7 +224,7 @@ export default function PaymentBoard() {
     <div className="w-full min-h-screen bg-white p-4 sm:p-6 text-gray-700">
       <div className="mb-9">
         <button
-          onClick={() => router.push("/TotalCustomer")}
+          onClick={() => router.back()}
           className="flex items-center gap-2 shadow bg-slate-200 hover:bg-slate-300 text-gray-700 px-4 py-2 rounded-lg transition"
         >
           ← Back
