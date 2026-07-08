@@ -33,9 +33,12 @@ export async function GET() {
     const allowedDays = ["1", "11", "21"];
     const dateStatsMap = {};
     const loanCountMap = {};
+    // NEW: Track collections per allowed day
+    const dateCollectionsMap = {};
 
     allowedDays.forEach((day) => {
       loanCountMap[day] = 0;
+      dateCollectionsMap[day] = { amount: 0, count: 0 }; // Initialize for breakdown
       dateStatsMap[day] = {
         cashAmount: 0,
         cashCount: 0,
@@ -46,21 +49,31 @@ export async function GET() {
 
     const collections = await db.collection("collections").find().toArray();
 
-let totalPaidAmount = 0;
-let totalTaken = 0;
-let totalTakenCount=0;
+    let totalPaidAmount = 0;
+    let totalTaken = 0;
+    let totalTakenCount = 0;
 
-// Total paid by customers (from loans)
-loans.forEach((loan) => {
-  totalPaidAmount += Number(loan.totalPaid || 0);
-});
+    // Total paid by customers (from loans)
+    loans.forEach((loan) => {
+      totalPaidAmount += Number(loan.totalPaid || 0);
+    });
 
-// Total taken/collected (from collections)
-collections.forEach((item) => {
-  totalTaken += Number(item.amount || 0);
-});
+    // Total taken/collected (from collections) + Dynamic Day Breakdowns
+    collections.forEach((item) => {
+      const amount = Number(item.amount || 0);
+      totalTaken += amount;
+      
+      // Map collection item to its respective day (e.g., matching "1", "11", or "21")
+      // NOTE: Change 'item.emiDate' to match whatever field stores the day in your collection schema
+      const collectionDayStr = String(item.emiDate || ""); 
+      
+      if (allowedDays.includes(collectionDayStr)) {
+        dateCollectionsMap[collectionDayStr].amount += amount;
+        dateCollectionsMap[collectionDayStr].count += 1;
+      }
+    });
 
-totalTakenCount=collections.length
+    totalTakenCount = collections.length;
 
     // 3. Single-Pass Execution ($O(N)$ efficiency)
     loans.forEach((loan) => {
@@ -131,6 +144,8 @@ totalTakenCount=collections.length
     // 5. Structure the requested `dates` arrays output dynamically
     const dates = allowedDays.map((day) => {
       const metrics = dateStatsMap[day];
+      const collectionMetrics = dateCollectionsMap[day]; // Extract day-specific collection numbers
+      
       return {
         day,
         loanCount: loanCountMap[day],
@@ -140,6 +155,8 @@ totalTakenCount=collections.length
         upiCount: metrics.upiCount,
         totalAmount: metrics.cashAmount + metrics.upiAmount,
         totalPayments: metrics.cashCount + metrics.upiCount,
+        totalTaken: collectionMetrics.amount,       // <-- Added day specific total taken
+        totalTakenCount: collectionMetrics.count,   // <-- Added day specific count
       };
     });
 
@@ -154,7 +171,6 @@ totalTakenCount=collections.length
       },
       transactions,
       dates,
-      
     });
 
   } catch (error) {
@@ -168,4 +184,3 @@ totalTakenCount=collections.length
     );
   }
 }
-

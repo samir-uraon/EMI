@@ -157,53 +157,62 @@ const CollectionDashboard = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {dates.map((date) => {
-            return (
-              <button
-                key={date.day}
-                onClick={() => handleDateClick(date.day)}
-                className="rounded-xl border p-5 text-left transition-all duration-200 bg-white border-gray-200 hover:border-blue-500 hover:shadow-md hover:scale-[1.01]"
-              >
-                {/* Header */}
-                <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-bold text-gray-900">
-                    {date.day}
-                    {date.day === "1" ? "st" : date.day === "11" ? "th" : "th"}
-                  </h3>
+  return (
+    <button
+      key={date.day}
+      onClick={() => handleDateClick(date.day)}
+      className="rounded-xl border p-5 text-left transition-all duration-200 bg-white border-gray-200 hover:border-blue-500 hover:shadow-md hover:scale-[1.01]"
+    >
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <h3 className="text-xl font-bold text-gray-900">
+          {date.day}
+          {date.day === "1" ? "st" : date.day === "11" ? "th" : "th"}
+        </h3>
 
-                  <span className="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-700 font-medium">
-                    {date.loanCount} Loans
-                  </span>
-                </div>
+        <span className="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-700 font-medium">
+          {date.loanCount} Loans
+        </span>
+      </div>
 
-                {/* Cash */}
-                <div className="mt-5 flex justify-between items-center">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">💵 Cash</p>
-                    <p className="text-xs text-gray-400">{date.cashCount} Payments</p>
-                  </div>
-                  <p className="font-bold text-gray-800">₹{date.cashAmount.toLocaleString("en-IN")}</p>
-                </div>
+      {/* Cash */}
+      <div className="mt-5 flex justify-between items-center">
+        <div>
+          <p className="text-sm font-medium text-gray-600">💵 Cash</p>
+          <p className="text-xs text-gray-400">{date.cashCount} Payments</p>
+        </div>
+        <p className="font-bold text-gray-800">₹{(date.cashAmount || 0).toLocaleString("en-IN")}</p>
+      </div>
 
-                {/* UPI */}
-                <div className="mt-3 flex justify-between items-center">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">📱 UPI</p>
-                    <p className="text-xs text-gray-400">{date.upiCount} Payments</p>
-                  </div>
-                  <p className="font-bold text-gray-800">₹{date.upiAmount.toLocaleString("en-IN")}</p>
-                </div>
+      {/* UPI */}
+      <div className="mt-3 flex justify-between items-center">
+        <div>
+          <p className="text-sm font-medium text-gray-600">📱 UPI</p>
+          <p className="text-xs text-gray-400">{date.upiCount} Payments</p>
+        </div>
+        <p className="font-bold text-gray-800">₹{(date.upiAmount || 0).toLocaleString("en-IN")}</p>
+      </div>
 
-                {/* Total */}
-                <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between items-center">
-                  <div>
-                    <p className="font-semibold text-gray-900">Total</p>
-                    <p className="text-xs text-gray-400">{date.totalPayments} Payments</p>
-                  </div>
-                  <p className="text-lg font-bold text-blue-600">₹{date.totalAmount.toLocaleString("en-IN")}</p>
-                </div>
-              </button>
-            );
-          })}
+      {/* Total Taken (Collections) */}
+      <div className="mt-3 flex justify-between items-center bg-amber-50/50 p-2 rounded-lg border border-dashed border-amber-200">
+        <div>
+          <p className="text-sm font-semibold text-amber-800">💼 Total Taken</p>
+          <p className="text-xs text-amber-600">{(date.totalTakenCount || 0)} Collections</p>
+        </div>
+        <p className="font-bold text-amber-900">₹{(date.totalTaken || 0).toLocaleString("en-IN")}</p>
+      </div>
+
+      {/* Total */}
+      <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between items-center">
+        <div>
+          <p className="font-semibold text-gray-900">Total</p>
+          <p className="text-xs text-gray-400">{date.totalPayments} Payments</p>
+        </div>
+        <p className="text-lg font-bold text-blue-600">₹{(date.totalAmount || 0).toLocaleString("en-IN")}</p>
+      </div>
+    </button>
+  );
+})}
         </div>
       </div>
 
