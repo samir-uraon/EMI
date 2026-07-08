@@ -70,59 +70,86 @@ export default function LoanForm() {
     }));
   }, []);
 
-  const handleChange = (e) => {
-    const { name, value, files, type } = e.target;
+const formatDate = (date) => {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
 
-    if (type !== "file") {
-      setForm((prev) => {
-        let updatedForm = { ...prev, [name]: value };
+const handleChange = (e) => {
+  const { name, value, files, type } = e.target;
 
-        // SYNC LOGIC 1: If user alters the Due Day select dropdown, adjust the calendar date picker's day matching it
-        if (name === "emiDate" && value && prev.emiStartDate) {
-          const dateParts = prev.emiStartDate.split("-"); // [YYYY, MM, DD]
-          const paddedDay = String(value).padStart(2, "0");
-          updatedForm.emiStartDate = `${dateParts[0]}-${dateParts[1]}-${paddedDay}`;
-        }
-
-        // SYNC LOGIC 2: If user manually changes the full date picker, recalculate and select standard dropdown cycles
-        if (name === "emiStartDate" && value) {
-          const selectedDay = String(Number(value.split("-")[2])); // Strip leading zero for comparison
-          updatedForm.emiDate = ["1", "11", "21"].includes(selectedDay) ? selectedDay : "";
-        }
-
-        return updatedForm;
-      });
-      return;
-    }
-
-    const selectedFiles = Array.from(files || []);
-    const allowedTypes = ["image/png", "image/jpeg", "image/jpg"];
-
-    for (const file of selectedFiles) {
-      if (!allowedTypes.includes(file.type)) {
-        alert("Only PNG, JPG and JPEG files are allowed.");
-        e.target.value = "";
-        return;
-      }
-    }
-
+  if (type !== "file") {
     setForm((prev) => {
-      const oldFiles = prev[name] || [];
+      let updatedForm = { ...prev, [name]: value };
 
-      if (oldFiles.length + selectedFiles.length > 2) {
-        alert("Maximum 2 images are allowed.");
-        e.target.value = "";
-        return prev;
+      // Auto set EMI Start Date
+      if (name === "emiDate" && value) {
+        const today = new Date();
+
+        let year = today.getFullYear();
+        let month = today.getMonth(); // 0-11
+        const day = Number(value);
+
+        // If selected day already passed, move to next month
+        if (day < today.getDate()) {
+          month++;
+
+          if (month > 11) {
+            month = 0;
+            year++;
+          }
+        }
+
+        const emiStartDate = new Date(year, month, day);
+        updatedForm.emiStartDate = formatDate(emiStartDate);
       }
 
-      return {
-        ...prev,
-        [name]: [...oldFiles, ...selectedFiles],
-      };
+      // Sync dropdown when user changes date manually
+      if (name === "emiStartDate" && value) {
+        const day = String(new Date(value + "T00:00:00").getDate());
+
+        updatedForm.emiDate = ["1", "11", "21"].includes(day)
+          ? day
+          : "";
+      }
+
+      return updatedForm;
     });
 
-    e.target.value = "";
-  };
+    return;
+  }
+
+  // File upload
+  const selectedFiles = Array.from(files || []);
+  const allowedTypes = ["image/png", "image/jpeg", "image/jpg"];
+
+  for (const file of selectedFiles) {
+    if (!allowedTypes.includes(file.type)) {
+      alert("Only PNG, JPG and JPEG files are allowed.");
+      e.target.value = "";
+      return;
+    }
+  }
+
+  setForm((prev) => {
+    const oldFiles = prev[name] || [];
+
+    if (oldFiles.length + selectedFiles.length > 2) {
+      alert("Maximum 2 images are allowed.");
+      e.target.value = "";
+      return prev;
+    }
+
+    return {
+      ...prev,
+      [name]: [...oldFiles, ...selectedFiles],
+    };
+  });
+
+  e.target.value = "";
+};
 
   const removeFile = (field, index) => {
     setForm((prev) => ({
