@@ -194,7 +194,7 @@ export default function SalesmanTimelineDashboard() {
                  className="bg-white border border-gray-200 rounded-xl p-4 shadow-xs space-y-3">
                     <div className="flex justify-between items-center border-b border-gray-100 pb-2">
                       <span className="text-xs font-bold text-gray-400 uppercase">{getDayLabel(dueDate, index)}</span>
-                      <span className="text-sm font-medium text-gray-700 hover:text-blue-700 cursor-pointer"   onClick={()=>{}}>{formatDate(dueDate)}</span>
+                      <span className="text-sm font-medium text-gray-700 hover:text-blue-700 cursor-pointer"   onClick={()=>{router.push(`${salesmanIdParam}/${dueDate}`)}}>{formatDate(dueDate)}</span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
