@@ -124,7 +124,7 @@ export async function POST(req) {
         paidDate: null,
         fine: 200,
         finePaid: false,
-        
+      
       });
     }
 

@@ -73,6 +73,7 @@ export async function GET(request, { params }) {
             cash: 0,
             upi: 0,
             expected: 0,
+          
             taken: takenMap[dueDateKey] || 0, // Inject matching recorded taken value
             customers: [],
           };
@@ -93,6 +94,7 @@ export async function GET(request, { params }) {
           customerName: loan.customerName,
           paidDate: payment.paidDate,
           amount: payment.amount,
+            mode:payment.paymentMode,
           status: payment.status,
         });
       });

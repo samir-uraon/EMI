@@ -41,6 +41,7 @@ export default function CustomerCollectionDashboard() {
       if (result.success && result.data) {
         setSalesmenName(result.salesmenName);
         setData(Object.entries(result.data));
+        
       }
     } catch (error) {
       toast.error("Error fetching customer collection data");
@@ -154,44 +155,61 @@ export default function CustomerCollectionDashboard() {
                   const totalCollected = cashPaid + upiPaid;
 
                   return (
-                    <div 
-                      key={`${dueDateKey}-${customer.customerId}`} 
-                      className="bg-white border border-gray-200 active:bg-gray-50 rounded-xl p-3.5 shadow-xs space-y-2.5 transition active:scale-[0.99] text-gray-700"
-                     
-                    >
-                      <div className="flex justify-between items-start border-b border-gray-100 pb-2">
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-sm font-bold text-gray-950 capitalize truncate">{customer.customerName || "Unknown Customer"}</span>
-                          <span className="text-[10px] font-mono text-gray-600 mt-0.5 cursor-pointer hover:text-blue-600"  onClick={() => router.push(`/customer/${customer.customerId}/payments`)}>ID: {customer.customerId || "N/A"}</span>
-                        </div>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          isPaid ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
-                        }`}>
-                          {customer.status}
-                        </span>
-                      </div>
+                  <div
+  key={`${dueDateKey}-${customer.customerId}`}
+  onClick={() => router.push(`/customer/${customer.customerId}/payments`)}
+  className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 transition-all duration-200 hover:border-blue-200 cursor-pointer active:scale-[0.99] hover:shadow-md"
+>
+  {/* Header */}
+  <div className="flex items-start justify-between gap-3">
+    <div className="min-w-0">
+      <h3 className="text-base font-bold text-gray-900 truncate">
+        {customer.customerName || "Unknown Customer"}
+      </h3>
+      <p className="mt-0.5 text-xs font-mono text-gray-400">
+        ID: {customer.customerId || "N/A"}
+      </p>
+    </div>
 
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600">Cash Paid</span>
-                          <span className="font-mono font-medium text-gray-700">₹{cashPaid.toLocaleString("en-IN")}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600">UPI Paid</span>
-                          <span className="font-mono font-medium text-gray-700">₹{upiPaid.toLocaleString("en-IN")}</span>
-                        </div>
-                        <div className="flex justify-between items-center col-span-2 pt-1 border-t border-dotted border-gray-100">
-                          <span className="text-gray-600">Target Amount</span>
-                          <span className="font-mono font-semibold text-gray-900">₹{Number(customer.amount || 0).toLocaleString("en-IN")}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex justify-between items-center pt-2 mt-1 bg-gray-50 px-2.5 py-1.5 rounded-lg">
-                        <span className="text-xs font-semibold text-gray-600">Total Cleared:</span>
-                        <span className="font-mono font-bold text-green-700 text-sm">₹{totalCollected.toLocaleString("en-IN")}</span>
-                      </div>
-                    </div>
-                  );
+    <span
+      className={`px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase whitespace-nowrap ${
+        isPaid
+          ? "bg-green-50 text-green-700 border border-green-200"
+          : "bg-amber-50 text-amber-700 border border-amber-200"
+      }`}
+    >
+      {customer.status || "Pending"}
+    </span>
+  </div>
+
+  {/* Body Content */}
+  <div className="mt-4 space-y-2.5">
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-gray-500">Payment Mode</span>
+      <span className="font-semibold text-gray-800">
+        {customer.mode === "Cash" ? "💵 Cash" : customer.mode === "UPI" ? "📱 UPI" : customer.mode || "-"}
+      </span>
+    </div>
+
+    {customer.salesmanName && (
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-gray-500">Salesman</span>
+        <span className="font-medium text-gray-700 truncate max-w-[150px]">
+          {customer.salesmanName}
+        </span>
+      </div>
+    )}
+
+    {/* Financial Split / Total */}
+    <div className="border-t border-gray-100 pt-3 mt-1 flex items-baseline justify-between">
+      <span className="text-sm font-semibold text-gray-900">Amount Received</span>
+      <span className="text-xl font-black text-emerald-600">
+        ₹{Number(customer.amount || 0).toLocaleString("en-IN")}
+      </span>
+    </div>
+  </div>
+</div>
+                  )
                 })
               )}
             </div>
@@ -205,8 +223,7 @@ export default function CustomerCollectionDashboard() {
                       <th className="px-6 py-4">Customer ID</th>
                       <th className="px-6 py-4">Customer Name</th>
                       <th className="px-6 py-4">Paid Date</th>
-                      <th className="px-6 py-4">Cash Paid</th>
-                      <th className="px-6 py-4">UPI Paid</th>
+                      <th className="px-6 py-4">Payment Mode</th>
                       <th className="px-6 py-4">Amount</th>
                       <th className="px-6 py-4">Status</th>
                     </tr>
@@ -231,11 +248,9 @@ export default function CustomerCollectionDashboard() {
                               {formatDate(customer.paidDate)}
                             </td>
                             <td className="px-6 py-4 font-mono text-gray-600">
-                              {isPaid ? `₹${row.cash.toLocaleString("en-IN")}` : "₹0"}
+                              {isPaid ? customer.mode : "NA"}
                             </td>
-                            <td className="px-6 py-4 font-mono text-gray-600">
-                              {isPaid ? `₹${row.upi.toLocaleString("en-IN")}` : "₹0"}
-                            </td>
+        
                             <td className="px-6 py-4 font-mono font-semibold text-gray-900">
                               ₹{Number(customer.amount).toLocaleString("en-IN")}
                             </td>
