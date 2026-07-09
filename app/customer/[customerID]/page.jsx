@@ -363,7 +363,7 @@ const handleGeneratePDF = async () => {
                   {loan?.status}
                 </span>
                 {isAdmin && loan?.removeMark && (
-                  <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">🚫 Deleted</span>
+                  <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">Deleted</span>
                 )}
               </div>
             </div>

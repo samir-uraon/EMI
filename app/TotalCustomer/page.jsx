@@ -301,7 +301,7 @@ if (status === "loading" || loading){
   )}
 
   {(isAdmin && customer.removeMark) && (
-    <span className="bg-red-300 text-white px-2 py-1 rounded-md text-sm font-semibold">
+    <span className="bg-red-400 text-white px-2 py-1 rounded-md text-sm font-semibold">
      Deleted
     </span>
   )}
