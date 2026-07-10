@@ -322,6 +322,15 @@ if (status === "loading" || loading){
 })}
     </p>
 
+  <p>
+  <a
+    href={`tel:${customer.mobile}`}
+    className="inline-block cursor-pointer transition-all duration-150 active:scale-95 active:opacity-80"
+  >
+    <span className="font-semibold">Phone:</span> {customer.mobile}
+  </a>
+</p>
+
     <p>
       <span className="font-semibold">Paid:</span> {customer.paidEmi}/{customer.numberOfEmi}
     </p>

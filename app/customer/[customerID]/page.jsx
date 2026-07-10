@@ -207,10 +207,17 @@ const handleGeneratePDF = async () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2">
                 <div className="grid md:grid-cols-2 gap-4">
-                  <div>
+                  <div className="flex flex-col gap-y-2">
                     <p><b>Customer ID:</b> {loan?.customerId}</p>
                     <p><b>Customer Name:</b> {loan?.customerName}</p>
-                    <p><b>Mobile:</b> {loan?.mobile}</p>
+                  <p>
+  <a
+    href={`tel:${loan?.mobile}`}
+    className="inline-block cursor-pointer transition-all duration-150 active:scale-95 active:opacity-80"
+  >
+    <span className="font-semibold">Phone:</span> {loan?.mobile}
+  </a>
+</p>
                     <p><b>Alternate:</b> {loan?.altMobile || "NA"}</p>
 
                     <div className="flex flex-col gap-2 mt-2 w-52">
