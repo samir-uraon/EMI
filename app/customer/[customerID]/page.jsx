@@ -182,7 +182,7 @@ const handleGeneratePDF = async () => {
         <div className="max-w-6xl mx-auto space-y-6">
           {/* Back Button */}
           <button
-            onClick={() => router.push("/TotalCustomer")}
+            onClick={() => router.back()}
             className="mb-4 flex items-center shadow gap-2 bg-slate-200 hover:bg-slate-300 text-gray-700 px-4 py-2 rounded-lg transition"
           >
             ← Back

@@ -269,7 +269,7 @@ const CollectionDashboard = () => {
                 filteredTransactions.map((row, i) => (
                   <tr
                     key={i}
-                    onClick={() => router.push(`/customer/${row.customerId}`)}
+                    onClick={() => router.push(`/customer/${row.customerId}/payments`)}
                     className="hover:bg-slate-100 cursor-pointer"
                   >
                     <td className="py-4 px-6 text-blue-600 font-semibold">{row.customerId}</td>
@@ -304,7 +304,7 @@ const CollectionDashboard = () => {
           filteredTransactions.map((row, i) => (
             <div
               key={i}
-              onClick={() => router.push(`/customer/${row.customerId}`)}
+              onClick={() => router.push(`/customer/${row.customerId}/payments`)}
               className="bg-white rounded-xl shadow border p-4 active:scale-[0.98] transition cursor-pointer"
             >
               <div className="flex justify-between items-start mb-3">
@@ -330,7 +330,7 @@ const CollectionDashboard = () => {
                 </div>
                 <div>
                   <p className="text-gray-500">Paid Date</p>
-                  <p>{row.paidDate}</p>
+                  <p>{row.paidDate.split("T")[0]}</p>
                 </div>
                 <div>
                   <p className="text-gray-500">Due Date</p>
