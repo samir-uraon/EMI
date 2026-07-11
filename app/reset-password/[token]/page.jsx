@@ -64,7 +64,7 @@ useEffect(() => {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/resetpassword", {
+      const res = await fetch(`/api/resetpassword/${token}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -79,7 +79,9 @@ useEffect(() => {
 
       if (res.ok) {
         toast.success(data.message || "Password reset successful!");
-
+      setConfirmPassword("")
+        setPassword("")
+      
         setTimeout(() => {
           router.replace("/login");
         }, 1500);

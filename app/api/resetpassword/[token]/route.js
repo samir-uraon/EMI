@@ -27,6 +27,8 @@ const user = await usersCollection.findOne({
   resetPasswordToken: hashedToken,
   resetPasswordExpire: { $gt: new Date() },
 });
+console.log(user);
+
 
     if (!user) {
       return Response.json(
@@ -81,11 +83,16 @@ export async function GET(req,{params}) {
       .db(process.env.MONGODB_DB)
       .collection("users");
 
+      const hashedToken = crypto
+  .createHash("sha256")
+  .update(token)
+  .digest("hex");
+
     const user = await usersCollection.findOne({
-      resetPasswordToken: token,
+      resetPasswordToken: hashedToken,
       resetPasswordExpire: { $gt: new Date() },
     });
-    console.log(user);
+  
     
 
     if (!user) {

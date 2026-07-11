@@ -1,20 +1,34 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import fs from "fs";
 import path from "path";
+import { put } from "@vercel/blob";
 
 export async function POST(req) {
   try {
-    // Safely pull the parsed object body out
-    const body = await req.json();
-    const customer = body?.customer;
+    let customer;
+
+    const contentType = req.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      const body = await req.json();
+      customer = body.customer;
+    } else if (contentType.includes("application/x-www-form-urlencoded")) {
+      const text = await req.text();
+      const params = new URLSearchParams(text);
+      customer = JSON.parse(params.get("customer"));
+    } else if (contentType.includes("multipart/form-data")) {
+      const formData = await req.formData();
+      customer = JSON.parse(formData.get("customer"));
+    }
 
     if (!customer) {
       return Response.json(
-        { success: false, message: "Missing customer payload data object" },
+        { success: false, message: "Customer data missing" },
         { status: 400 }
       );
     }
 
+    // Generate PDF...
     const pdfPath = path.join(process.cwd(), "public", "templates", "form.pdf");
 
     if (!fs.existsSync(pdfPath)) {
@@ -41,18 +55,31 @@ export async function POST(req) {
 
     const pdfBytes = await pdfDoc.save();
 
-    return new Response(pdfBytes, {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": "attachment; filename=EMI.pdf",
-      },
-    });
+  //return new Response(pdfBytes, {
+  //  headers: {
+  //    "Content-Type": "application/pdf",
+  //    "Content-Disposition": `attachment; filename="Loan_Form_${customer.name}.pdf"`,
+  //  },
+  //});
 
-  } catch (error) {
-    console.error("Backend PDF Error:", error);
-    return Response.json(
-      { success: false, message: error.message },
-      { status: 500 }
-    );
+  const blob = await put(
+  `Loan_Form_${customer.name}.pdf`,
+  Buffer.from(pdfBytes),
+  {
+    access: "public",
+    addRandomSuffix: true,
+    contentType: "application/pdf",
+    token: process.env.BLOB_READ_WRITE_TOKEN,
+  }
+);
+
+return Response.json({
+  success: true,
+  downloadUrl: blob.url,
+});
+
+  } catch (err) {
+    console.error(err);
+    return Response.json({ message: err.message }, { status: 500 });
   }
 }

@@ -233,10 +233,9 @@ export default function EditCustomer() {
           </button>
 
           <div className="text-right">
-            <h1 className="text-lg font-semibold text-gray-900 flex items-center justify-end gap-2">
+            <h1 className="text-md font-semibold text-gray-900 flex items-center justify-end gap-2">
               <Edit2 className="w-4 h-4 text-blue-500" /> Edit Customer & Loan
             </h1>
-            <p className="text-xs text-gray-500">Update customer, product and EMI details.</p>
           </div>
         </div>
 

@@ -24,6 +24,7 @@ const [pdfUrl, setPdfUrl] = useState(null);
   const [loan, setLoan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [removing, setRemoving] = useState(false);
+    const [loading2, setLoading2] = useState(false);
 
   useEffect(() => {
     if (status === "authenticated" && customerID) {
@@ -83,64 +84,50 @@ const [pdfUrl, setPdfUrl] = useState(null);
     }
   };
 
+
+
 const handleGeneratePDF = async () => {
-  const formatted = new Date(loan?.createdAt).toLocaleDateString("en-GB");
+  if (loading) return;
 
-  const customer = {
-    name: loan?.customerName,
-    date: formatted,
-    product: loan?.productName,
-    price: loan?.productPrice,
-    downPayment: loan?.downPayment,
-    balance: loan?.financeAmount,
-    emiAmount: loan?.emiAmount,
-    numberOfEmi: loan?.numberOfEmi,
-  };
-
-  let loadingToast = toast.loading("Generating PDF Form...");
+  setLoading2(true);
 
   try {
-    // We send a direct JSON object down to the API route
+    const formatted = new Date().toLocaleDateString("en-GB");
+
+    const customer = {
+      name: loan?.customerName,
+      date: formatted,
+      product: loan?.productName,
+      price: loan?.productPrice,
+      downPayment: loan?.downPayment,
+      balance: loan?.financeAmount,
+      emiAmount: loan?.emiAmount,
+      numberOfEmi: loan?.numberOfEmi,
+    };
+
     const response = await fetch("/api/pdf", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json", 
-        "Accept": "application/pdf",
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ customer }),
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || "Failed to generate PDF on server");
+      throw new Error(data.message);
     }
 
-    const blob = await response.blob();
-    
-    // Fallback strategy designed to force Website2App / Native systems to catch download streams
-    const reader = new FileReader();
-    reader.readAsDataURL(blob);
-    reader.onloadend = () => {
-      const base64data = reader.result;
-      
-      const link = document.createElement("a");
-      link.href = base64data;
-      link.download = `Loan_Form_${(loan?.customerName || "Customer").replace(/\s+/g, "_")}.pdf`;
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast.dismiss(loadingToast);
-      toast.success("PDF Downloaded Successfully");
-    };
-
-  } catch (error) {
-    toast.dismiss(loadingToast);
-    toast.error(error.message || "Could not generate PDF");
-    console.error("PDF generation error:", error);
+    window.location.href = data.downloadUrl;
+  } catch (err) {
+    console.error(err);
+    alert(err.message);
+  } finally {
+    setLoading2(false);
   }
 };
+
 
 
   const idProofs = Array.isArray(loan?.customerIdProof)
@@ -229,12 +216,44 @@ const handleGeneratePDF = async () => {
                           Salesman: {loan?.salesmanName}
                         </button>
                       )}
-                      <button
-                        className="mt-2 bg-slate-500 hover:bg-slate-600 text-white py-2 px-2 rounded-lg transition text-md shadow-sm"
-                        onClick={handleGeneratePDF}
-                      >
-                        Generate Form
-                      </button>
+        <button
+  type="button"
+  onClick={handleGeneratePDF}
+  disabled={loading2}
+  className={`mt-2 inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-400 ${
+    loading2
+      ? "cursor-not-allowed bg-slate-400 opacity-70"
+      : "bg-slate-600 hover:bg-slate-700 active:scale-95"
+  }`}
+>
+  {loading2 ? (
+    <>
+      <svg
+        className="mr-2 h-4 w-4 animate-spin"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+        />
+      </svg>
+      Generating...
+    </>
+  ) : (
+    "Generate Form"
+  )}
+</button>
                     </div>
                   </div>
 
