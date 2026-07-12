@@ -55,28 +55,28 @@ export async function POST(req) {
 
     const pdfBytes = await pdfDoc.save();
 
-  //return new Response(pdfBytes, {
-  //  headers: {
-  //    "Content-Type": "application/pdf",
-  //    "Content-Disposition": `attachment; filename="Loan_Form_${customer.name}.pdf"`,
-  //  },
-  //});
+  return new Response(pdfBytes, {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="Loan_Form_${customer.name}.pdf"`,
+    },
+  });
 
-  const blob = await put(
-  `Loan_Form_${customer.name}.pdf`,
-  Buffer.from(pdfBytes),
-  {
-    access: "public",
-    addRandomSuffix: true,
-    contentType: "application/pdf",
-    token: process.env.BLOB_READ_WRITE_TOKEN,
-  }
-);
+//  const blob = await put(
+//  `Loan_Form_${customer.name}.pdf`,
+//  Buffer.from(pdfBytes),
+//  {
+//    access: "public",
+//    addRandomSuffix: true,
+//    contentType: "application/pdf",
+//    token: process.env.BLOB_READ_WRITE_TOKEN,
+//  }
+//);
 
-return Response.json({
-  success: true,
-  downloadUrl: blob.url,
-});
+//return Response.json({
+//  success: true,
+//  downloadUrl: blob.url,
+//});
 
   } catch (err) {
     console.error(err);

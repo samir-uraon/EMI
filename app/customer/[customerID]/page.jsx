@@ -113,25 +113,15 @@ const handleGeneratePDF = async () => {
       body: JSON.stringify({ customer }),
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message);
-    }
+  const blob = await response.blob();
+const url = URL.createObjectURL(blob);
 
-    // Get PDF as blob
-    const blob = await response.blob();
+const a = document.createElement("a");
+a.href = url;
+a.download = `Loan_Form_${customer.name}.pdf`;
+a.click();
 
-    // Create download link
-    const url = window.URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Loan_Form_${customer.name}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-
-    a.remove();
-    window.URL.revokeObjectURL(url);
+URL.revokeObjectURL(url);
   } catch (err) {
     console.error(err);
     alert(err.message);
