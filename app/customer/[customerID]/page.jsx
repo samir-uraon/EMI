@@ -113,7 +113,20 @@ const handleGeneratePDF = async () => {
       body: JSON.stringify({ customer }),
     });
 
-  const blob = await response.blob();
+    const data = await response.json();
+
+// Download immediately (website)
+const byteCharacters = atob(data.pdf);
+const byteNumbers = new Array(byteCharacters.length);
+
+for (let i = 0; i < byteCharacters.length; i++) {
+  byteNumbers[i] = byteCharacters.charCodeAt(i);
+}
+
+const blob = new Blob([new Uint8Array(byteNumbers)], {
+  type: "application/pdf",
+});
+
 const url = URL.createObjectURL(blob);
 
 const a = document.createElement("a");
@@ -122,6 +135,9 @@ a.download = `Loan_Form_${customer.name}.pdf`;
 a.click();
 
 URL.revokeObjectURL(url);
+
+// For WebView
+window.location.href = data.downloadUrl;
   } catch (err) {
     console.error(err);
     alert(err.message);

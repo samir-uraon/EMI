@@ -39,7 +39,7 @@ const res = await fetch(`/api/admin/${salesmenid}`);
   return (
     <div className="p-10 text-md	text-black min-h-screen bg-slate-100">
 					 <button
-    onClick={() => router.push(isAdmin?"/admin/salesmen":"/")}
+    onClick={() => (isAdmin?router.back():router.push("/"))}
       className="mb-4 flex items-center gap-2 shadow bg-slate-200 hover:bg-slate-300 text-gray-700 px-4 py-2 rounded-lg transition"
     >
       ← Back

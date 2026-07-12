@@ -220,7 +220,7 @@ if (status === "loading" || loading || !user) {
 				<div className="px-2  flex justify-between items-center relative">
       {/* Back Button */}
     <button
-    onClick={() => router.push(isAdmin?"/admin/salesmen":"/")}
+    onClick={() => (isAdmin?router.back():router.push("/"))}
       className="flex items-center gap-2 shadow bg-slate-200 hover:bg-slate-300 text-gray-700 px-4 py-2 rounded-lg transition"
     >
       ← Back
