@@ -200,6 +200,10 @@ const handleKeyDown = (e) => {
   }
 };
 
+
+const isWebView = typeof window !== "undefined" && !!window.ReactNativeWebView;
+
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-5 py-12 sm:px-6 lg:px-8">
      <div className="absolute left-4 top-4 ">
@@ -333,7 +337,9 @@ const handleKeyDown = (e) => {
           </button>
         </form>
 
-        <div className="my-6 flex items-center gap-3">
+      { !isWebView && 
+      (<>
+      <div className=" my-6 flex items-center gap-3">
           <span className="flex-1 h-px bg-gray-200"></span>
           <span className="text-xs text-gray-400 font-medium tracking-wider">OR</span>
           <span className="flex-1 h-px bg-gray-200"></span>
@@ -342,7 +348,7 @@ const handleKeyDown = (e) => {
         <button
           type="button"
           onClick={() => signIn("google", { callbackUrl: "/" })}
-          className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-300 bg-white py-3 transition hover:bg-gray-200 active:bg-gray-100"
+          className=" flex w-full  items-center justify-center gap-3 rounded-xl border border-gray-300 bg-white py-3 transition hover:bg-gray-200 active:bg-gray-100"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-5 h-5">
             <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.6 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12S17.4 12 24 12c3 0 5.7 1.1 7.8 2.9l5.7-5.7C33.9 6.1 29.2 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.5-.4-3.5z" />
@@ -354,6 +360,7 @@ const handleKeyDown = (e) => {
             Continue with Google
           </span>
         </button>
+        </>)}
 
         <p className="mt-6 text-center text-sm text-gray-600">
           {isSignup ? (

@@ -57,7 +57,7 @@ export async function POST(req) {
 
 
   const blob = await put(
-  `Loan_Form_${customer.name}.pdf`,
+  `Loan_Form_${customer.name.split(" ")[0]}.pdf`,
   Buffer.from(pdfBytes),
   {
     access: "public",
