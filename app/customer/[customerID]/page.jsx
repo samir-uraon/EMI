@@ -115,29 +115,38 @@ const handleGeneratePDF = async () => {
 
     const data = await response.json();
 
-// Download immediately (website)
-const byteCharacters = atob(data.pdf);
-const byteNumbers = new Array(byteCharacters.length);
+if (window.ReactNativeWebView) {
+  // Running inside React Native WebView
+  window.ReactNativeWebView.postMessage(
+    JSON.stringify({
+      type: "DOWNLOAD_PDF",
+      url: data.downloadUrl,
+    })
+  );
+} else {
+  // Running in browser
+  const byteCharacters = atob(data.pdf);
+  const byteNumbers = new Array(byteCharacters.length);
 
-for (let i = 0; i < byteCharacters.length; i++) {
-  byteNumbers[i] = byteCharacters.charCodeAt(i);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+
+  const blob = new Blob([new Uint8Array(byteNumbers)], {
+    type: "application/pdf",
+  });
+
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Loan_Form_${customer.name}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  URL.revokeObjectURL(url);
 }
-
-const blob = new Blob([new Uint8Array(byteNumbers)], {
-  type: "application/pdf",
-});
-
-const url = URL.createObjectURL(blob);
-
-const a = document.createElement("a");
-a.href = url;
-a.download = `Loan_Form_${customer.name}.pdf`;
-a.click();
-
-URL.revokeObjectURL(url);
-
-// For WebView
-window.location.href = data.downloadUrl;
   } catch (err) {
     console.error(err);
     alert(err.message);
