@@ -221,23 +221,24 @@ export default function EditCustomer() {
       <div className="max-w-full mx-auto space-y-6">
 
         {/* Header Section */}
-        <div className="bg-white border border-gray-200 rounded-xl p-4 px-7 shadow-sm flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => router.push(`/customer/${customerID}`)}
-            className="p-2 hover:bg-gray-300 rounded-full transition-colors flex items-center justify-center gap-1 text-md font-medium"
-            title="Back"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-            Back
-          </button>
+    <div className="bg-white border border-gray-200 rounded-xl p-4 px-4 shadow-sm flex items-center justify-between">
+  <button
+    type="button"
+    onClick={() => router.push(`/customer/${customerID}`)}
+    className="p-2 hover:bg-gray-300 rounded-full transition-colors flex items-center gap-1 text-md font-medium"
+    title="Back"
+  >
+    <ArrowLeft className="w-5 h-5 text-gray-600" />
+    Back
+  </button>
 
-          <div className="text-right">
-            <h1 className="text-md font-semibold text-gray-900 flex items-center justify-end gap-2">
-              <Edit2 className="w-4 h-4 text-blue-500" /> Edit Customer & Loan
-            </h1>
-          </div>
-        </div>
+  <h1 className="text-md font-semibold text-gray-900 flex items-center gap-2">
+    <Edit2 className="w-4 h-4 text-blue-500" />
+    Edit Customer & Loan
+  </h1>
+</div>
+
+    
 
         <form onSubmit={handleSave} className="space-y-6">
 

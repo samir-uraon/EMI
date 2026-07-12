@@ -87,7 +87,7 @@ const [pdfUrl, setPdfUrl] = useState(null);
 
 
 const handleGeneratePDF = async () => {
-  if (loading) return;
+  if (loading2) return;
 
   setLoading2(true);
 
@@ -113,13 +113,25 @@ const handleGeneratePDF = async () => {
       body: JSON.stringify({ customer }),
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      throw new Error(data.message);
+      const error = await response.json();
+      throw new Error(error.message);
     }
 
-    window.location.href = data.downloadUrl;
+    // Get PDF as blob
+    const blob = await response.blob();
+
+    // Create download link
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Loan_Form_${customer.name}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+
+    a.remove();
+    window.URL.revokeObjectURL(url);
   } catch (err) {
     console.error(err);
     alert(err.message);
