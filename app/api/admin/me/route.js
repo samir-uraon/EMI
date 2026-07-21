@@ -23,12 +23,16 @@ export async function GET() {
 				let loans = [];
 
 		
-		loans = await db
-  .collection("loans")
-  .find({})
-  .toArray();
+loans = await db
+      .collection("loans")
+      .find({
+removeMark: { $ne: true }
+      })
+      .toArray();
 
     const salesmen = await db.collection("users").find({}).toArray();
+				
+			
 				
 
 				return NextResponse.json({

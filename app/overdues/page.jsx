@@ -26,6 +26,8 @@ const { data: session,status } = useSession({
         const res = await fetch(isAdmin ? "/api/admin/me" : "/api/me");
         const data = await res.json();
         setLoans(data.loans || []);
+ 
+
       } catch (err) {
         console.error(err);
       } finally {
@@ -34,32 +36,42 @@ const { data: session,status } = useSession({
     };
 
     fetchLoans();
-  }, []);
-
-  const today = new Date();
+  }, [status]);
 
 const overdueCustomers = useMemo(() => {
-  return loans
-    .filter((loan) => {
-      if (loan.status !== "Active") return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-      const nextPending = loan.payments?.find(
-        (payment) => payment.status === "Pending"
-      );
+  return loans.filter((loan) => {
+   
 
-      if (!nextPending) return false;
+    if (loan.status !== "Active") return false;
 
-      return new Date(nextPending.dueDate) <= today;
-    })
-    .filter((loan) => {
-      const value = search.toLowerCase();
+    const nextPending = loan.payments?.find(
+      (p) => p.status === "Pending"
+    );
 
-      return (
+   
+
+    if (!nextPending) return false;
+
+    const dueDate = new Date(nextPending.dueDate);
+    dueDate.setHours(0, 0, 0, 0);
+
+   
+
+    const value = search.toLowerCase();
+
+    return (
+      dueDate <= today &&
+      (
         loan.customerName?.toLowerCase().includes(value) ||
         loan.mobile?.includes(search)
-      );
-    });
+      )
+    );
+  });
 }, [loans, search]);
+
 
  if (status === "loading" || loading){
   return (
