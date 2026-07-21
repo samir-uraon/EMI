@@ -25,53 +25,74 @@ export async function GET() {
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
 
-    // Single-pass loop through all customers
-    customers.forEach((customer) => {
-      if (customer.status !== "Active" || customer.removeMark) return;
 
-      activeLoans++;
-      totalLoanAmount += Number(customer.totalLoanAmount || 0);
-      totalOutstanding += Number(customer.totalLoanAmount || 0) - Number(customer.totalPaid || 0);
+today.setHours(0, 0, 0, 0);
 
-      // Process payments array safely
-      if (Array.isArray(customer.payments)) {
-        let foundPending = false;
+// Single-pass loop through all customers
+customers.forEach((customer) => {
+  if (customer.status !== "Active" || customer.removeMark) return;
 
-        customer.payments.forEach((payment) => {
-          // 1. Calculate Overdue EMIs (Only checks the first pending payment found)
-          if (!foundPending && payment.status === "Pending") {
-            foundPending = true; 
-            if (payment.dueDate) {
-              const dueDate = new Date(payment.dueDate);
-              if (today >= dueDate) {
-                overdueEMI++;
-              }
-            }
-          }
+  activeLoans++;
+  totalLoanAmount += Number(customer.totalLoanAmount || 0);
+  totalOutstanding +=
+    Number(customer.totalLoanAmount || 0) -
+    Number(customer.totalPaid || 0);
 
-          // 2. Calculate Monthly Collection (based on paid date)
-          if (payment.paidDate) {
-            const paidDate = new Date(payment.paidDate);
-            if (paidDate.getMonth() === currentMonth && paidDate.getFullYear() === currentYear) {
-              monthlyCollection += Number(payment.amount || 0);
-            }
-          }
+  if (!Array.isArray(customer.payments)) return;
 
-          // 3. Calculate Total Fines Collected
-          if (payment.finePaid && payment.status !== "Pending") {
-            totalFine += Number(payment.fine || 0);
-          }
+  // Find the earliest pending EMI
+  const nextPending = customer.payments
+    .filter(
+      (payment) =>
+        payment.status?.toLowerCase() === "pending" && payment.dueDate
+    )
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0];
 
-          // 4. Calculate Expected Monthly EMI (based on due date)
-          if (payment.dueDate) {
-            const dueDate = new Date(payment.dueDate);
-            if (dueDate.getMonth() === currentMonth && dueDate.getFullYear() === currentYear) {
-              monthlyEMI += Number(payment.amount || 0);
-            }
-          }
-        });
+  // Count overdue customer
+  if (nextPending) {
+    const dueDate = new Date(nextPending.dueDate);
+    dueDate.setHours(0, 0, 0, 0);
+
+    if (dueDate <= today) {
+      overdueEMI++;
+    }
+  }
+
+  // Process all payments
+  customer.payments.forEach((payment) => {
+    // Monthly Collection
+    if (payment.paidDate) {
+      const paidDate = new Date(payment.paidDate);
+
+      if (
+        paidDate.getMonth() === currentMonth &&
+        paidDate.getFullYear() === currentYear
+      ) {
+        monthlyCollection += Number(payment.amount || 0);
       }
-    });
+    }
+
+    // Total Fine Collected
+    if (
+      payment.finePaid &&
+      payment.status?.toLowerCase() !== "pending"
+    ) {
+      totalFine += Number(payment.fine || 0);
+    }
+
+    // Monthly EMI
+    if (payment.dueDate) {
+      const dueDate = new Date(payment.dueDate);
+
+      if (
+        dueDate.getMonth() === currentMonth &&
+        dueDate.getFullYear() === currentYear
+      ) {
+        monthlyEMI += Number(payment.amount || 0);
+      }
+    }
+  });
+});
 
     const remain = monthlyEMI - monthlyCollection;
 

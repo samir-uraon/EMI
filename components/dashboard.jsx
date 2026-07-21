@@ -87,6 +87,7 @@ const totalOutstanding = activeLoans?.reduce(
 );
 
 const today = new Date();
+today.setHours(0, 0, 0, 0);
 
 const totalMonthlyEmi = activeLoans?.reduce((sum, loan) => {
   const monthlyAmount =
@@ -199,14 +200,19 @@ const upcomingLoans = activeLoans
 
 
 
+
+
 const overdueCustomers = activeLoans?.filter((loan) => {
-  const nextPending = loan.payments?.find(
-    (payment) => payment.status === "Pending"
-  );
+  const pendingPayments = loan.payments
+    ?.filter((payment) => payment.status?.toLowerCase() === "pending")
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
-  if (!nextPending) return false;
+  if (!pendingPayments?.length) return false;
 
-  return new Date(nextPending.dueDate) <= today;
+  const dueDate = new Date(pendingPayments[0].dueDate);
+  dueDate.setHours(0, 0, 0, 0);
+
+  return dueDate <= today;
 });
 
 

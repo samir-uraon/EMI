@@ -99,6 +99,7 @@ const totalMonthlyEmi = activeLoans?.reduce(
 
 // Find nearest EMI date
 const today = new Date();
+today.setHours(0, 0, 0, 0);
 
 
 const emiDays = [1, 11, 21];
@@ -189,14 +190,18 @@ const upcomingLoans = activeLoans
 
 
 
+
 const overdueCustomers = activeLoans?.filter((loan) => {
-  const nextPending = loan.payments?.find(
-    (payment) => payment.status === "Pending"
-  );
+  const pendingPayments = loan.payments
+    ?.filter((payment) => payment.status?.toLowerCase() === "pending")
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
-  if (!nextPending) return false;
+  if (!pendingPayments?.length) return false;
 
-  return new Date(nextPending.dueDate) <= today;
+  const dueDate = new Date(pendingPayments[0].dueDate);
+  dueDate.setHours(0, 0, 0, 0);
+
+  return dueDate <= today;
 });
 
 
@@ -621,7 +626,7 @@ if (status === "loading" || loading || !user) {
   {overdueCustomers.length > 3 && (
     <div className="flex justify-center mt-5">
       <button
-        onClick={() => router.push("/TotalCustomer")}
+        onClick={() => router.push("/overdues")}
         className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
       >
         Show More ({overdueCustomers.length - 3}+)
