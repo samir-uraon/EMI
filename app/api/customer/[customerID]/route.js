@@ -279,35 +279,41 @@ const currentDay = firstDueDate.getDate();
 const currentMonth = String(firstDueDate.getMonth() + 1).padStart(2, "0");
 const currentYear = String(firstDueDate.getFullYear());
 
-
+const emiCountChanged =
+  Number(body.numberOfEMI) !== loan.payments.length;
 
 if (
   String(body.emiDate) !== String(currentDay) ||
   String(body.emiMonth).padStart(2, "0") !== String(currentMonth) ||
-  String(body.emiYear) !== String(currentYear)
+  String(body.emiYear) !== String(currentYear) ||
+  emiCountChanged
 ) {
   
- 
-  const startDay = Number(body.emiDate);
-  const startMonth = Number(body.emiMonth) - 1; // 0-11
-  const startYear = Number(body.emiYear);
+  
+const emiCount = Number(body.numberOfEmi);
 
- updatedPayments = loan.payments.map((payment, index) => {
-const dueDate = new Date(
-  Date.UTC(
-    startYear,
-    startMonth + index,
-    startDay
-  )
-);
+const startDay = Number(body.emiDate);
+const startMonth = Number(body.emiMonth) - 1;
+const startYear = Number(body.emiYear);
 
-    return {
-      ...payment,
-      dueDate,
-    };
-  });
+updatedPayments = Array.from({ length: emiCount }, (_, index) => ({
+  emiNo: index + 1,
+  dueDate: new Date(
+    Date.UTC(
+      startYear,
+      startMonth + index,
+      startDay
+    )
+  ),
+  amount: body.emiAmount,
+  status: "Pending",
+  paidDate: null,
+  fine: 0,
+  paymentMode: "",
+  remarks: "",
+}));
 
-  body.payments = updatedPayments;
+body.payments = updatedPayments;
 }
 
     await db.collection("loans").updateOne(

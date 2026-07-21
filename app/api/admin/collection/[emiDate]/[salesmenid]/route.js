@@ -31,7 +31,7 @@ export async function GET(request, { params }) {
       .collection("loans")
       .find({
         salesmanID: salesmenid,
-        status: "Active",
+      
         removeMark: { $ne: true },
         $or: [
           { emiDate: emiDate },

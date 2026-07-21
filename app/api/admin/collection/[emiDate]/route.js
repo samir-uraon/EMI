@@ -20,7 +20,7 @@ export async function GET(req, { params }) {
               { emiDate: String(emiDate) },
             ],
           },
-          { status: "Active" },
+        
           { removeMark: { $ne: true } },
         ],
       })
