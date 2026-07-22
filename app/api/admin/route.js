@@ -30,7 +30,22 @@ today.setHours(0, 0, 0, 0);
 
 // Single-pass loop through all customers
 customers.forEach((customer) => {
-  if (customer.status !== "Active" || customer.removeMark) return;
+  if (customer.removeMark) return;
+
+  // Count fine for ALL loans (Active + Completed)
+  if (Array.isArray(customer.payments)) {
+    customer.payments.forEach((payment) => {
+      if (
+        payment.finePaid &&
+        payment.status?.toLowerCase() !== "pending"
+      ) {
+        totalFine += Number(payment.fine || 0);
+      }
+    });
+  }
+
+  // Everything below only for Active loans
+  if (customer.status !== "Active") return;
 
   activeLoans++;
   totalLoanAmount += Number(customer.totalLoanAmount || 0);
@@ -40,7 +55,7 @@ customers.forEach((customer) => {
 
   if (!Array.isArray(customer.payments)) return;
 
-  // Find the earliest pending EMI
+  // Find earliest pending EMI
   const nextPending = customer.payments
     .filter(
       (payment) =>
@@ -48,7 +63,6 @@ customers.forEach((customer) => {
     )
     .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0];
 
-  // Count overdue customer
   if (nextPending) {
     const dueDate = new Date(nextPending.dueDate);
     dueDate.setHours(0, 0, 0, 0);
@@ -58,7 +72,6 @@ customers.forEach((customer) => {
     }
   }
 
-  // Process all payments
   customer.payments.forEach((payment) => {
     // Monthly Collection
     if (payment.paidDate) {
@@ -70,14 +83,6 @@ customers.forEach((customer) => {
       ) {
         monthlyCollection += Number(payment.amount || 0);
       }
-    }
-
-    // Total Fine Collected
-    if (
-      payment.finePaid &&
-      payment.status?.toLowerCase() !== "pending"
-    ) {
-      totalFine += Number(payment.fine || 0);
     }
 
     // Monthly EMI
