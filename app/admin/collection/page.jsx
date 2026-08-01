@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Wallet, Smartphone, Search, Calendar } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import ScrollUp from '@/components/ScrollUp';
 
 const CollectionDashboard = () => {
   const router = useRouter();
@@ -349,7 +350,7 @@ const CollectionDashboard = () => {
           </div>
         )}
       </div>
-
+<ScrollUp/>
     </div>
   );
 };

@@ -27,7 +27,7 @@ export default function ScrollUp() {
       {showButton && (
        <button
   onClick={scrollToTop}
-className="fixed bottom-40 left-1/2 -translate-x-1/2 z-50 flex items-center justify-center w-12 h-12 rounded-full bg-gray-600 hover:bg-gray-700 text-white shadow-lg transition-all duration-300 hover:scale-110 animate-bounce"
+className="fixed bottom-40 left-1/2 -translate-x-1/2 z-50 flex items-center justify-center w-12 h-12 rounded-full bg-gray-400 hover:bg-gray-500 text-white shadow-lg transition-all ease duration-300 hover:scale-105 animate-bounce"
 >
   <svg
     xmlns="http://www.w3.org/2000/svg"

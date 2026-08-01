@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
+import ScrollUp from "@/components/ScrollUp";
 
 export default function OverdueCustomers() {
   const [loans, setLoans] = useState([]);
@@ -262,6 +263,7 @@ const overdueCustomers = useMemo(() => {
     )}
   </div>
 </div>
+<ScrollUp/>
 </div>
      
   );
