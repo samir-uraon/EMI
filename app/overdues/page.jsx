@@ -42,35 +42,34 @@ const overdueCustomers = useMemo(() => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  return loans.filter((loan) => {
-   
+  return loans
+    .map((loan) => {
+      const nextPending = loan.payments?.find(
+        (p) => p.status === "Pending"
+      );
 
-    if (loan.status !== "Active") return false;
+      return { ...loan, nextPending };
+    })
+    .filter((loan) => {
+      if (loan.status !== "Active") return false;
+      if (!loan.nextPending) return false;
 
-    const nextPending = loan.payments?.find(
-      (p) => p.status === "Pending"
-    );
+      const dueDate = new Date(loan.nextPending.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
 
-   
+      const value = search.toLowerCase();
 
-    if (!nextPending) return false;
-
-    const dueDate = new Date(nextPending.dueDate);
-    dueDate.setHours(0, 0, 0, 0);
-
-   
-
-    const value = search.toLowerCase();
-
-    return (
-      dueDate <= today &&
-      (
-        loan.customerName?.toLowerCase().includes(value) ||
-        loan.mobile?.includes(search)
-      )
-    );
-  });
+      return (
+        dueDate <= today &&
+        (
+          loan.customerName?.toLowerCase().includes(value) ||
+          loan.mobile?.includes(search)
+        )
+      );
+    });
 }, [loans, search]);
+
+
 
 
  if (status === "loading" || loading){
@@ -147,19 +146,13 @@ const overdueCustomers = useMemo(() => {
   <td className="px-5 py-4">
                       {loan.salesmanName}
                     </td>}
-                    <td className="px-5 py-4">
-            
-  {new Date(
-    new Date().getFullYear(),
-    new Date().getMonth(),
-    loan.emiDate
-  ).toLocaleDateString("en-GB", {
+                  <td className="px-5 py-4">
+  {new Date(loan.nextPending.dueDate).toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   })}
-
-                    </td>
+</td>
 
                     <td className="px-5 py-4">
                       ₹{Number(loan.emiAmount).toLocaleString("en-IN")}
@@ -230,15 +223,13 @@ const overdueCustomers = useMemo(() => {
               <span>EMI Date</span>
 
               <span>
-                {new Date(
-                  new Date().getFullYear(),
-                  new Date().getMonth(),
-                  loan.emiDate
-                ).toLocaleDateString("en-GB", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })}
+            
+  {new Date(loan.nextPending.dueDate).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })}
+
               </span>
             </div>
 
