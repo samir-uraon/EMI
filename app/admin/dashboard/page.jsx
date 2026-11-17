@@ -24,7 +24,7 @@ const [dashboard, setDashboard] = useState({
   remain: 0,
   totalFine: 0,
 });
-const [loading, setLoading] = useState(true);
+const [loading, setLoading] = useState(false);
 
 
 
@@ -72,7 +72,7 @@ useEffect(() => {
 
 
 
-if (status === "loading" || loading) {
+if (status === "loading") {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="flex flex-col items-center gap-4">

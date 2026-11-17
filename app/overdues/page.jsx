@@ -8,7 +8,7 @@ import ScrollUp from "@/components/ScrollUp";
 export default function OverdueCustomers() {
   const [loans, setLoans] = useState([]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
 const router = useRouter();
 const { data: session,status } = useSession({
@@ -71,9 +71,22 @@ const overdueCustomers = useMemo(() => {
 }, [loans, search]);
 
 
+const totalOverdue = useMemo(() => {
+  return overdueCustomers.reduce((sum, loan) => {
+    const overduePayments =
+      loan.payments?.filter((p) => {
+        const dueDate = new Date(p.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+
+        return p.status === "Pending" && dueDate <= new Date();
+      }) || [];
+
+    return sum + overduePayments.length * Number(loan.emiAmount);
+  }, 0);
+}, [overdueCustomers]);
 
 
- if (status === "loading" || loading){
+ if (status === "loading"){
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="flex flex-col items-center gap-4">
@@ -109,7 +122,23 @@ const overdueCustomers = useMemo(() => {
           className="w-full mb-6 rounded-lg border px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
         />
 
+<div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
+  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+    <div className="text-center sm:text-left">
+      <p className="text-sm text-gray-600">Total Overdue Customers</p>
+      <h2 className="text-xl sm:text-2xl font-bold text-blue-600">
+        {overdueCustomers.length}
+      </h2>
+    </div>
 
+    <div className="border-t sm:border-t-0 sm:border-l border-blue-200 pt-4 sm:pt-0 sm:pl-6 text-center sm:text-right">
+      <p className="text-sm text-gray-600">Total Overdue Amount</p>
+      <h2 className="text-xl sm:text-2xl font-bold text-red-600 break-words">
+        ₹{totalOverdue.toLocaleString("en-IN")}
+      </h2>
+    </div>
+  </div>
+</div>
 
   {/* Desktop Table */}
     <div className="hidden md:block bg-white rounded-xl shadow overflow-x-auto scrollbar-thin scrollbar-thumb-slate-400 scrollbar-track-slate-200">

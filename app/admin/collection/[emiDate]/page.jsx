@@ -3,6 +3,7 @@
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { CalendarCheck, AlertCircle, Wallet, Smartphone, ArrowRight } from "lucide-react";
 
 export default function AdminCollectionDashboard() {
   const router = useRouter();
@@ -24,14 +25,16 @@ export default function AdminCollectionDashboard() {
     emiDate;
 
   // Functional UI state management
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
-  const [salesmenData, setSalesmenData] = useState([]); 
+  const [salesmenData, setSalesmenData] = useState([]);
+  const [currentMonth, setCurrentMonth] = useState("");
 
   // Financial Metrics State
   const [metrics, setMetrics] = useState({
-    totalEx: 0,   // Total Expected
-    totalCol: 0,  // Total Collected
+    totalEx: 0,        // Total Expected (Current Month)
+    previousDue: 0,    // Previous Month Due
+    totalCol: 0,       // Total Collected (Current Month)
     cash: 0,
     upi: 0,
   });
@@ -59,15 +62,22 @@ export default function AdminCollectionDashboard() {
       if (result.success) {
         const loans = result.loans || [];
         const salesmen = result.salesmen || [];
+        setCurrentMonth(result.currentMonth || "");
 
         setData(loans);
 
+        // Date Boundary Setup for Current Month
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
         let localTotalEx = 0;
+        let localPreviousDue = 0;
         let localTotalCol = 0;
         let localCash = 0;
         let localUpi = 0;
 
-        // Create lookup by _id
+        // Create salesman lookup map
         const salesmanLookup = {};
         salesmen.forEach((s) => {
           if (s._id) {
@@ -76,8 +86,6 @@ export default function AdminCollectionDashboard() {
         });
 
         const salesmenMap = {};
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
 
         loans.forEach((loan) => {
           const salesmanId = loan.salesmanID?.toString() || "unassigned";
@@ -92,6 +100,7 @@ export default function AdminCollectionDashboard() {
                 loan.salesmanName ||
                 "Unassigned",
               totalEx: 0,
+              previousDue: 0,
               totalCol: 0,
               cash: 0,
               upi: 0,
@@ -99,30 +108,45 @@ export default function AdminCollectionDashboard() {
           }
 
           (loan.payments || []).forEach((payment) => {
-            const due = new Date(payment.dueDate);
-            due.setHours(0, 0, 0, 0);
+            if (payment.removeMark) return;
 
-            // Expected Calculation
-            if (due <= today) {
-              localTotalEx += Number(payment.amount || 0);
-              salesmenMap[salesmanId].totalEx += Number(payment.amount || 0);
+            const baseAmount = Number(payment.amount || 0);
+            const dueDateObj = payment.dueDate ? new Date(payment.dueDate) : null;
+            const paidDateObj = payment.paidDate ? new Date(payment.paidDate) : null;
+
+            // 1. Expected for Current Month
+            if (dueDateObj && dueDateObj >= startOfMonth && dueDateObj <= endOfMonth) {
+              localTotalEx += baseAmount;
+              salesmenMap[salesmanId].totalEx += baseAmount;
             }
 
-            // Collected Calculation
-            if (payment.status !== "Pending") {
-              const amount = Number(payment.amount || 0);
+            // 2. Previous Month Due
+            if (dueDateObj && dueDateObj < startOfMonth) {
+              const isUnpaid = payment.status !== "Paid";
+              const paidLateInCurrentMonth = paidDateObj && paidDateObj >= startOfMonth;
 
-              localTotalCol += amount;
-              salesmenMap[salesmanId].totalCol += amount;
+              if (isUnpaid || paidLateInCurrentMonth) {
+                localPreviousDue += baseAmount;
+                salesmenMap[salesmanId].previousDue += baseAmount;
+              }
+            }
 
-              if (payment.paymentMode?.toLowerCase() === "cash") {
-                localCash += amount;
-                salesmenMap[salesmanId].cash += amount;
+            // 3. Collected in Current Month
+            if (payment.status === "Paid" && paidDateObj && paidDateObj >= startOfMonth && paidDateObj <= endOfMonth) {
+              let paidAmount = baseAmount;
+              if (payment.finePaid) {
+                paidAmount += Number(payment.fine || 0);
               }
 
-              if (payment.paymentMode?.toLowerCase() === "upi") {
-                localUpi += amount;
-                salesmenMap[salesmanId].upi += amount;
+              localTotalCol += paidAmount;
+              salesmenMap[salesmanId].totalCol += paidAmount;
+
+              if (payment.paymentMode?.toLowerCase() === "cash") {
+                localCash += paidAmount;
+                salesmenMap[salesmanId].cash += paidAmount;
+              } else if (payment.paymentMode?.toLowerCase() === "upi") {
+                localUpi += paidAmount;
+                salesmenMap[salesmanId].upi += paidAmount;
               }
             }
           });
@@ -132,6 +156,7 @@ export default function AdminCollectionDashboard() {
 
         setMetrics({
           totalEx: localTotalEx,
+          previousDue: localPreviousDue,
           totalCol: localTotalCol,
           cash: localCash,
           upi: localUpi,
@@ -146,7 +171,7 @@ export default function AdminCollectionDashboard() {
     }
   };
 
-  if (status === "loading" || loading) {
+  if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="flex flex-col items-center gap-4">
@@ -160,7 +185,7 @@ export default function AdminCollectionDashboard() {
   if (!isAdmin) return null;
 
   return (
-    <div className="p-4 sm:p-6 max-w-full  space-y-6">
+    <div className="p-4 sm:p-6 max-w-full space-y-6 bg-slate-100 min-h-screen">
       
       {/* Back Button */}
       <div>
@@ -169,34 +194,78 @@ export default function AdminCollectionDashboard() {
           className="flex items-center shadow-xs gap-2 bg-slate-200 hover:bg-slate-300 text-gray-700 px-4 py-2 rounded-lg transition text-sm font-medium"
         >
           ← Back
-        </button> 
+        </button>
       </div>
       
       {/* Header section */}
-      <header>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
-          EMI Date Target: <span className="font-semibold text-blue-600">{displayDate}</span>
-        </h1>
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-gray-200 pb-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
+            EMI Date Target: <span className="font-bold text-blue-600">{displayDate}</span>
+          </h1>
+          {currentMonth && (
+            <p className="text-sm font-medium text-gray-500 mt-1">
+              Active Month: <span className="text-gray-800 font-semibold">{currentMonth}</span>
+            </p>
+          )}
+        </div>
       </header>
 
       {/* --- Overall Metrics Grid --- */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-          <p className="text-[10px] sm:text-sm font-medium text-gray-500 uppercase tracking-wider">Total Expected</p>
-          <p className="text-lg sm:text-2xl font-bold text-gray-900 mt-1 font-mono">₹{metrics.totalEx.toLocaleString("en-IN")}</p>
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-5">
+        
+        {/* Total Expected Card */}
+        <div className="bg-white p-4 sm:p-5 rounded-xl shadow-xs border border-gray-100 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Expected</p>
+            <p className="text-lg sm:text-2xl font-bold text-gray-900 mt-1 font-mono">₹{metrics.totalEx.toLocaleString("en-IN")}</p>
+          </div>
+          <div className="p-2.5 bg-blue-100 text-blue-600 rounded-full hidden sm:block">
+            <CalendarCheck size={20} />
+          </div>
         </div>
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-          <p className="text-[10px] sm:text-sm font-medium text-gray-500 uppercase tracking-wider">Total Collected</p>
-          <p className="text-lg sm:text-2xl font-bold text-green-600 mt-1 font-mono">₹{metrics.totalCol.toLocaleString("en-IN")}</p>
+
+        {/* Previous Month Due Card */}
+        <div className="bg-white p-4 sm:p-5 rounded-xl shadow-xs border border-gray-100 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] sm:text-xs font-semibold text-red-500 uppercase tracking-wider">Previous Due</p>
+            <p className="text-lg sm:text-2xl font-bold text-red-600 mt-1 font-mono">₹{metrics.previousDue.toLocaleString("en-IN")}</p>
+          </div>
+          <div className="p-2.5 bg-red-100 text-red-600 rounded-full hidden sm:block">
+            <AlertCircle size={20} />
+          </div>
         </div>
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-          <p className="text-[10px] sm:text-sm font-medium text-gray-500 uppercase tracking-wider">Collected (Cash)</p>
-          <p className="text-lg sm:text-2xl font-bold text-amber-600 mt-1 font-mono">₹{metrics.cash.toLocaleString("en-IN")}</p>
+
+        {/* Total Collected Card */}
+        <div className="bg-white p-4 sm:p-5 rounded-xl shadow-xs border border-gray-100 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] sm:text-xs font-semibold text-emerald-600 uppercase tracking-wider">Total Collected</p>
+            <p className="text-lg sm:text-2xl font-bold text-emerald-600 mt-1 font-mono">₹{metrics.totalCol.toLocaleString("en-IN")}</p>
+          </div>
         </div>
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-          <p className="text-[10px] sm:text-sm font-medium text-gray-500 uppercase tracking-wider">Collected (UPI)</p>
-          <p className="text-lg sm:text-2xl font-bold text-blue-600 mt-1 font-mono">₹{metrics.upi.toLocaleString("en-IN")}</p>
+
+        {/* Cash Collected Card */}
+        <div className="bg-white p-4 sm:p-5 rounded-xl shadow-xs border border-gray-100 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] sm:text-xs font-semibold text-amber-600 uppercase tracking-wider">Cash</p>
+            <p className="text-lg sm:text-2xl font-bold text-amber-600 mt-1 font-mono">₹{metrics.cash.toLocaleString("en-IN")}</p>
+          </div>
+          <div className="p-2.5 bg-amber-100 text-amber-600 rounded-full hidden sm:block">
+            <Wallet size={20} />
+          </div>
         </div>
+
+        {/* UPI Collected Card */}
+        <div className="bg-white p-4 sm:p-5 rounded-xl shadow-xs border border-gray-100 flex items-center justify-between col-span-2 lg:col-span-1">
+          <div>
+            <p className="text-[10px] sm:text-xs font-semibold text-indigo-600 uppercase tracking-wider">UPI</p>
+            <p className="text-lg sm:text-2xl font-bold text-indigo-600 mt-1 font-mono">₹{metrics.upi.toLocaleString("en-IN")}</p>
+          </div>
+          <div className="p-2.5 bg-indigo-100 text-indigo-600 rounded-full hidden sm:block">
+            <Smartphone size={20} />
+          </div>
+        </div>
+
       </div>
 
       {/* --- Salesmen Breakdown Section --- */}
@@ -205,76 +274,95 @@ export default function AdminCollectionDashboard() {
         
         {salesmenData.length === 0 ? (
           <div className="bg-white p-6 text-center rounded-xl border border-gray-200 text-gray-400 text-sm">
-            No sales metrics available for this date filter.
+            No sales metrics available for this target date.
           </div>
         ) : (
           <>
-            {/* 1. MOBILE CARDS LIST (Visible on small screens, hidden on desktop) */}
+            {/* 1. MOBILE CARDS LIST */}
             <div className="block md:hidden space-y-3">
               {salesmenData.map((salesman) => (
                 <div
                   key={salesman.id}
-                
                   className="bg-white rounded-xl shadow-xs border border-gray-200 p-4 space-y-3 active:bg-gray-50"
                 >
                   <div className="flex justify-between items-center border-b border-gray-100 pb-2">
                     <h3 className="font-bold text-gray-950 text-base capitalize">{salesman.name}</h3>
-                    <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded cursor-pointer"   onClick={() => router.push(`/admin/collection/${emiDate}/${salesman.id}`)}>View Ledger →</span>
+                    <button 
+                      onClick={() => router.push(`/admin/collection/${emiDate}/${salesman.id}`)}
+                      className="text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded flex items-center gap-1"
+                    >
+                      View Ledger <ArrowRight size={12} />
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
                     <div className="flex justify-between border-b border-dotted border-gray-100 pb-1">
-                      <span className="text-gray-400">Expected:</span>
-                      <span className="font-mono font-semibold text-gray-700">₹{salesman.totalEx.toLocaleString("en-IN")}</span>
+                      <span className="text-gray-500">Expected:</span>
+                      <span className="font-mono font-semibold text-gray-800">₹{salesman.totalEx.toLocaleString("en-IN")}</span>
                     </div>
                     <div className="flex justify-between border-b border-dotted border-gray-100 pb-1">
-                      <span className="text-gray-400">Collected:</span>
-                      <span className="font-mono font-bold text-green-600">₹{salesman.totalCol.toLocaleString("en-IN")}</span>
+                      <span className="text-red-500">Prev. Due:</span>
+                      <span className="font-mono font-semibold text-red-600">₹{salesman.previousDue.toLocaleString("en-IN")}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-dotted border-gray-100 pb-1 col-span-2">
+                      <span className="text-emerald-700 font-medium">Collected:</span>
+                      <span className="font-mono font-bold text-emerald-600">₹{salesman.totalCol.toLocaleString("en-IN")}</span>
                     </div>
                     <div className="flex justify-between pt-0.5">
                       <span className="text-amber-600 font-medium">Cash:</span>
-                      <span className="font-mono text-gray-600">₹{salesman.cash.toLocaleString("en-IN")}</span>
+                      <span className="font-mono text-gray-700">₹{salesman.cash.toLocaleString("en-IN")}</span>
                     </div>
                     <div className="flex justify-between pt-0.5">
-                      <span className="text-blue-600 font-medium">UPI:</span>
-                      <span className="font-mono text-gray-600">₹{salesman.upi.toLocaleString("en-IN")}</span>
+                      <span className="text-indigo-600 font-medium">UPI:</span>
+                      <span className="font-mono text-gray-700">₹{salesman.upi.toLocaleString("en-IN")}</span>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* 2. DESKTOP GRID LAYOUT (Hidden on mobile) */}
+            {/* 2. DESKTOP GRID LAYOUT */}
             <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 gap-6">
               {salesmenData.map((salesman) => (
                 <div 
                   key={salesman.id} 
-                  
-                  className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:border-blue-600 transition-all cursor-pointer group"
+                  onClick={() => router.push(`/admin/collection/${emiDate}/${salesman.id}`)}
+                  className="bg-white rounded-xl shadow-xs border border-gray-200 overflow-hidden hover:border-blue-500 hover:shadow-md transition-all cursor-pointer group"
                 >
                   {/* Header card banner */}
-                  <div className="bg-slate-50 px-5 py-3 border-b border-gray-200 flex justify-between items-center group-hover:bg-blue-50/30">
+                  <div className="bg-slate-50 px-5 py-3 border-b border-gray-200 flex justify-between items-center group-hover:bg-blue-50/40 transition">
                     <h3 className="font-bold text-gray-800 text-lg capitalize">{salesman.name}</h3>
-                    <span className="text-xs text-blue-500 font-medium opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => router.push(`/admin/collection/${emiDate}/${salesman.id}`)}>Details →</span>
+                    <span className="text-xs text-blue-600 font-semibold opacity-0 group-hover:opacity-100 transition flex items-center gap-1">
+                      Details <ArrowRight size={12} />
+                    </span>
                   </div>
                   
                   {/* Individual Salesman Stats Grid */}
-                  <div className="p-5 grid grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">Expected</span>
-                      <p className="text-lg font-bold text-gray-700 font-mono">₹{salesman.totalEx.toLocaleString("en-IN")}</p>
+                  <div className="p-5 space-y-4">
+                    <div className="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                      <div>
+                        <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Expected</span>
+                        <p className="text-base font-bold text-gray-800 font-mono mt-0.5">₹{salesman.totalEx.toLocaleString("en-IN")}</p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-red-500 font-semibold uppercase tracking-wider">Previous Due</span>
+                        <p className="text-base font-bold text-red-600 font-mono mt-0.5">₹{salesman.previousDue.toLocaleString("en-IN")}</p>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">Collected</span>
-                      <p className="text-lg font-bold text-green-600 font-mono">₹{salesman.totalCol.toLocaleString("en-IN")}</p>
-                    </div>
-                    <div className="border-t border-gray-100 pt-2">
-                      <span className="text-xs text-amber-600 font-medium uppercase tracking-wide">Cash</span>
-                      <p className="text-md font-semibold text-gray-800 font-mono">₹{salesman.cash.toLocaleString("en-IN")}</p>
-                    </div>
-                    <div className="border-t border-gray-100 pt-2">
-                      <span className="text-xs text-blue-600 font-medium uppercase tracking-wide">UPI</span>
-                      <p className="text-md font-semibold text-gray-800 font-mono">₹{salesman.upi.toLocaleString("en-IN")}</p>
+
+                    <div className="grid grid-cols-3 gap-2 text-center border-t border-gray-100 pt-3">
+                      <div>
+                        <span className="text-[10px] text-emerald-700 font-semibold uppercase tracking-wider">Collected</span>
+                        <p className="text-sm font-bold text-emerald-600 font-mono mt-0.5">₹{salesman.totalCol.toLocaleString("en-IN")}</p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-amber-600 font-semibold uppercase tracking-wider">Cash</span>
+                        <p className="text-sm font-semibold text-gray-800 font-mono mt-0.5">₹{salesman.cash.toLocaleString("en-IN")}</p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-indigo-600 font-semibold uppercase tracking-wider">UPI</span>
+                        <p className="text-sm font-semibold text-gray-800 font-mono mt-0.5">₹{salesman.upi.toLocaleString("en-IN")}</p>
+                      </div>
                     </div>
                   </div>
                 </div>

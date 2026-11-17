@@ -21,7 +21,8 @@ export async function GET(req, { params }) {
             ],
           },
         
-          { removeMark: { $ne: true } },
+          { removeMark: { $ne: true } ,
+        status:"Active"},
         ],
       })
       .toArray();

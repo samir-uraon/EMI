@@ -14,6 +14,7 @@ export default function SalesmanTimelineDashboard() {
 
   const { data: session, status } = useSession({
     required: true,
+
     onUnauthenticated() {
       router.replace("/login");
     },
@@ -26,29 +27,195 @@ export default function SalesmanTimelineDashboard() {
   const [tempInputValue, setTempInputValue] = useState("");
   const [data, setData] = useState({});
   const [salesmenName, setSalesmenName] = useState("");
+  const [hidingRow, setHidingRow] = useState(null);
+
+  // =========================================================
+  // CURRENT DATE
+  // =========================================================
+
+  const today = new Date();
+
+  const currentDay = today.getDate();
+  const currentMonth = today.getMonth() + 1;
+  const currentYear = today.getFullYear();
+
+  // =========================================================
+  // FETCH DATA
+  // =========================================================
 
   useEffect(() => {
-    if (status === "authenticated" && isAdmin && emiDateParam) {
+    if (
+      status === "authenticated" &&
+      isAdmin &&
+      emiDateParam &&
+      salesmanIdParam
+    ) {
       fetchData();
     }
-  }, [status, isAdmin, emiDateParam]);
+  }, [
+    status,
+    isAdmin,
+    emiDateParam,
+    salesmanIdParam,
+  ]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/admin/collection/${emiDateParam}/${salesmanIdParam}`);
+
+      const res = await fetch(
+        `/api/admin/collection/${emiDateParam}/${salesmanIdParam}`,
+        {
+          cache: "no-store",
+        }
+      );
+
       const result = await res.json();
 
-      if (result.success && result.data) {
-        setData(result.data);        
-        setSalesmenName(result.salesmenName || "");
+      if (!res.ok || !result.success) {
+        throw new Error(
+          result.error ||
+            result.message ||
+            "Failed to fetch data"
+        );
       }
+
+      setData(result.data || {});
+      setSalesmenName(result.salesmenName || "");
     } catch (error) {
-      toast.error("Error fetching collection timeline data");
+      console.error(error);
+
+      toast.error(
+        error.message ||
+          "Error fetching collection timeline data"
+      );
     } finally {
       setLoading(false);
     }
   };
+
+  // =========================================================
+  // CHECK IF EMI DATE CAN BE HIDDEN
+  // =========================================================
+  //
+  // Example:
+  //
+  // Today = 25 September 2026
+  //
+  // EMI = 21 September 2026
+  // => can hide
+  //
+  // EMI = 25 September 2026
+  // => cannot hide
+  //
+  // EMI = 30 September 2026
+  // => cannot hide
+  //
+  // EMI = 21 October 2026
+  // => cannot hide
+  //
+  // EMI = 21 August 2026
+  // => cannot hide
+  // =========================================================
+
+const canHideEmiDate = (dueDate) => {
+  const due = new Date(dueDate);
+  const today = new Date();
+
+  return due < today;
+};
+
+  // =========================================================
+  // HIDE DATE
+  // =========================================================
+
+  const hideDate = async (rowId) => {
+    if (!rowId) return;
+
+    setHidingRow(rowId);
+
+    // Save previous state in case API fails
+    const previousData = { ...data };
+
+    // =======================================================
+    // Optimistic UI update
+    // =======================================================
+    //
+    // Remove this date immediately from screen.
+    //
+
+    setData((prev) => {
+      const updated = { ...prev };
+
+      delete updated[rowId];
+
+      return updated;
+    });
+
+    try {
+      const res = await fetch(
+        `/api/admin/collection/${emiDateParam}/${salesmanIdParam}`,
+        {
+          method: "PUT",
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            emiDate: emiDateParam,
+
+            month: currentMonth,
+
+            year: currentYear,
+
+            dueDate: rowId,
+
+            salesmanId: salesmanIdParam,
+
+            hide: true,
+          }),
+        }
+      );
+
+      const result = await res.json();
+
+      if (!res.ok || !result.success) {
+        throw new Error(
+          result.message ||
+            result.error ||
+            "Failed to hide date"
+        );
+      }
+
+      toast.success(
+        result.message ||
+          "Date hidden successfully"
+      );
+
+      /*
+       * Fetch again so frontend and database
+       * are completely synchronized.
+       */
+      await fetchData();
+    } catch (error) {
+      console.error("Hide date error:", error);
+
+      // Rollback optimistic update
+      setData(previousData);
+
+      toast.error(
+        error.message ||
+          "Failed to hide date"
+      );
+    } finally {
+      setHidingRow(null);
+    }
+  };
+
+  // =========================================================
+  // GRAND TOTALS
+  // =========================================================
 
   const grandTotals = useMemo(() => {
     let cash = 0;
@@ -58,265 +225,909 @@ export default function SalesmanTimelineDashboard() {
     let expected = 0;
 
     Object.values(data || {}).forEach((row) => {
-      cash += row.cash || 0;
-      upi += row.upi || 0;
-      collected += (row.cash || 0) + (row.upi || 0);
-      taken += row.taken || 0;
-      expected += row.expected || 0;
+      cash += Number(row.cash || 0);
+
+      upi += Number(row.upi || 0);
+
+      collected +=
+        Number(row.cash || 0) +
+        Number(row.upi || 0);
+
+      taken += Number(row.taken || 0);
+
+      expected += Number(row.expected || 0);
     });
 
-    return { cash, upi, collected, taken, expected };
+    return {
+      cash,
+      upi,
+      collected,
+      taken,
+      expected,
+    };
   }, [data]);
 
-  const startEditing = (rowId, currentVal) => {
+  // =========================================================
+  // EDIT TAKEN AMOUNT
+  // =========================================================
+
+  const startEditing = (
+    rowId,
+    currentVal
+  ) => {
     setEditingRowId(rowId);
-    setTempInputValue(currentVal === 0 ? "" : currentVal.toString());
+
+    setTempInputValue(
+      currentVal === 0
+        ? ""
+        : String(currentVal)
+    );
   };
 
+  // =========================================================
+  // SAVE TAKEN AMOUNT
+  // =========================================================
+
   const saveRowAmount = async (rowId) => {
-    const numericValue = tempInputValue === "" ? 0 : Math.max(0, parseInt(tempInputValue, 10) || 0);
-    const previousState = { ...data };
+    const numericValue =
+      tempInputValue === ""
+        ? 0
+        : Math.max(
+            0,
+            parseInt(
+              tempInputValue,
+              10
+            ) || 0
+          );
+
+    const previousState = {
+      ...data,
+    };
+
+    // =======================================================
+    // Optimistic update
+    // =======================================================
 
     setData((prev) => ({
       ...prev,
+
       [rowId]: {
         ...prev[rowId],
+
         taken: numericValue,
       },
     }));
+
     setEditingRowId(null);
 
     try {
-      const res = await fetch(`/api/admin/collection/${emiDateParam}/${salesmanIdParam}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dueDate: rowId,
-          amount: numericValue,
-          salesmanId: salesmanIdParam,
-        }),
-      });
+      const res = await fetch(
+        `/api/admin/collection/${emiDateParam}/${salesmanIdParam}`,
+        {
+          method: "POST",
 
-      if (!res.ok) throw new Error("Failed to save");
-      toast.success("Amount updated successfully");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to save update. Rolling back...");
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            dueDate: rowId,
+
+            amount: numericValue,
+
+            salesmanId: salesmanIdParam,
+          }),
+        }
+      );
+
+      const result = await res.json();
+
+      if (!res.ok || !result.success) {
+        throw new Error(
+          result.error ||
+            result.message ||
+            "Failed to save"
+        );
+      }
+
+      toast.success(
+        "Amount updated successfully"
+      );
+    } catch (error) {
+      console.error(
+        "Save amount error:",
+        error
+      );
+
+      // Rollback
       setData(previousState);
+
+      toast.error(
+        error.message ||
+          "Failed to save update"
+      );
     }
   };
 
+  // =========================================================
+  // CANCEL EDITING
+  // =========================================================
+
   const cancelEditing = () => {
     setEditingRowId(null);
+    setTempInputValue("");
   };
+
+  // =========================================================
+  // DATE FORMAT
+  // =========================================================
 
   const formatDate = (dateStr) => {
-    return isNaN(new Date(dateStr).getTime())
-      ? dateStr
-      : new Date(dateStr).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    const date = new Date(dateStr);
+
+    if (Number.isNaN(date.getTime())) {
+      return dateStr;
+    }
+
+    return date.toLocaleDateString(
+      "en-IN",
+      {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }
+    );
   };
 
-  const getDayLabel = (dateStr, index) => {
-    return isNaN(new Date(dateStr).getDate()) ? `Day ${index + 1}` : `Day ${new Date(dateStr).getDate()}`;
+  // =========================================================
+  // DAY LABEL
+  // =========================================================
+
+  const getDayLabel = (
+    dateStr,
+    index
+  ) => {
+    const date = new Date(dateStr);
+
+    if (Number.isNaN(date.getTime())) {
+      return `Day ${index + 1}`;
+    }
+
+    return `Day ${date.getDate()}`;
   };
+
+  // =========================================================
+  // LOADING AUTH
+  // =========================================================
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-500">
+          Loading...
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================
+  // UNAUTHORIZED
+  // =========================================================
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+          <h1 className="text-lg font-bold text-gray-800">
+            Unauthorized
+          </h1>
+
+          <p className="text-sm text-gray-500 mt-2">
+            You do not have permission to view this page.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================
+  // RETURN
+  // =========================================================
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 font-sans text-gray-800">
       <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
-        
-        {/* Top Header Panel */}
+
+        {/* =====================================================
+            HEADER
+        ====================================================== */}
+
         <div className="bg-white border border-gray-200 p-4 sm:p-5 rounded-xl shadow-xs flex items-center justify-between gap-4">
-              <button
-            onClick={() => router.push(isAdmin ? `/admin/collection/${emiDateParam}` : "/")}
+
+          <button
+            onClick={() =>
+              router.push(
+                `/admin/collection/${emiDateParam}`
+              )
+            }
             className="flex items-center gap-1.5 bg-slate-300 hover:bg-slate-400 text-gray-700 px-3 py-2 rounded-lg transition text-xs sm:text-sm font-medium shadow shrink-0"
           >
             ← Back
           </button>
+
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] sm:text-xs text-gray-400 font-bold uppercase tracking-wider">Salesman Identity</span>
-            <h1 className="text-base sm:text-lg font-bold text-gray-950 capitalize">
-              {salesmenName ? salesmenName : "Loading..."}
-            </h1>
-          </div>
-      
-        </div>
 
-        {/* Global Metric Breakdown Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
-          <div className="bg-white border border-gray-200 p-3 sm:p-4 rounded-xl shadow-xs">
-            <span className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider block">Total Cash</span>
-            <span className="text-base sm:text-lg font-bold text-gray-900 mt-0.5 block font-mono">₹{grandTotals.cash.toLocaleString("en-IN")}</span>
-          </div>
-          <div className="bg-white border border-gray-200 p-3 sm:p-4 rounded-xl shadow-xs">
-            <span className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider block">Total UPI</span>
-            <span className="text-base sm:text-lg font-bold text-gray-900 mt-0.5 block font-mono">₹{grandTotals.upi.toLocaleString("en-IN")}</span>
-          </div>
-          <div className="bg-white border border-gray-200 p-3 sm:p-4 rounded-xl shadow-xs">
-            <span className="text-[10px] sm:text-xs font-semibold text-green-600 uppercase tracking-wider block">Gross Collected</span>
-            <span className="text-base sm:text-lg font-bold text-green-700 mt-0.5 block font-mono">₹{grandTotals.collected.toLocaleString("en-IN")}</span>
-          </div>
-          <div className="bg-white border border-gray-200 p-3 sm:p-4 rounded-xl shadow-xs">
-            <span className="text-[10px] sm:text-xs font-semibold text-indigo-600 uppercase tracking-wider block">Total Taken</span>
-            <span className="text-base sm:text-lg font-bold text-indigo-700 mt-0.5 block font-mono">₹{grandTotals.taken.toLocaleString("en-IN")}</span>
-          </div>
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-3 sm:p-4 rounded-xl shadow-xs text-white col-span-2 md:col-span-1">
-            <span className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider block">Net Target Gap</span>
-            <span className="text-base sm:text-lg font-bold mt-0.5 block font-mono">
-              {loading ? "..." : `₹${Math.max(0, grandTotals.expected - grandTotals.collected).toLocaleString("en-IN")}`}
+            <span className="text-[10px] sm:text-xs text-gray-400 font-bold uppercase tracking-wider">
+              Salesman Identity
             </span>
+
+            <h1 className="text-base sm:text-lg font-bold text-gray-950 capitalize">
+              {salesmenName
+                ? salesmenName
+                : "Loading..."}
+            </h1>
+
           </div>
+
         </div>
 
-        {/* Loading States & Fallbacks */}
+        {/* =====================================================
+            METRIC CARDS
+        ====================================================== */}
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
+
+          {/* CASH */}
+
+          <div className="bg-white border border-gray-200 p-3 sm:p-4 rounded-xl shadow-xs">
+
+            <span className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider block">
+              Total Cash
+            </span>
+
+            <span className="text-base sm:text-lg font-bold text-gray-900 mt-0.5 block font-mono">
+              ₹
+              {grandTotals.cash.toLocaleString(
+                "en-IN"
+              )}
+            </span>
+
+          </div>
+
+          {/* UPI */}
+
+          <div className="bg-white border border-gray-200 p-3 sm:p-4 rounded-xl shadow-xs">
+
+            <span className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider block">
+              Total UPI
+            </span>
+
+            <span className="text-base sm:text-lg font-bold text-gray-900 mt-0.5 block font-mono">
+              ₹
+              {grandTotals.upi.toLocaleString(
+                "en-IN"
+              )}
+            </span>
+
+          </div>
+
+          {/* COLLECTED */}
+
+          <div className="bg-white border border-gray-200 p-3 sm:p-4 rounded-xl shadow-xs">
+
+            <span className="text-[10px] sm:text-xs font-semibold text-green-600 uppercase tracking-wider block">
+              Gross Collected
+            </span>
+
+            <span className="text-base sm:text-lg font-bold text-green-700 mt-0.5 block font-mono">
+              ₹
+              {grandTotals.collected.toLocaleString(
+                "en-IN"
+              )}
+            </span>
+
+          </div>
+
+          {/* TAKEN */}
+
+          <div className="bg-white border border-gray-200 p-3 sm:p-4 rounded-xl shadow-xs">
+
+            <span className="text-[10px] sm:text-xs font-semibold text-indigo-600 uppercase tracking-wider block">
+              Total Taken
+            </span>
+
+            <span className="text-base sm:text-lg font-bold text-indigo-700 mt-0.5 block font-mono">
+              ₹
+              {grandTotals.taken.toLocaleString(
+                "en-IN"
+              )}
+            </span>
+
+          </div>
+
+          {/* GAP */}
+
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-3 sm:p-4 rounded-xl shadow-xs text-white col-span-2 md:col-span-1">
+
+            <span className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider block">
+              Net Target Gap
+            </span>
+
+            <span className="text-base sm:text-lg font-bold mt-0.5 block font-mono">
+
+              {loading
+                ? "..."
+                : `₹${Math.max(
+                    0,
+                    grandTotals.expected -
+                      grandTotals.collected
+                  ).toLocaleString(
+                    "en-IN"
+                  )}`}
+
+            </span>
+
+          </div>
+
+        </div>
+
+        {/* =====================================================
+            LOADING
+        ====================================================== */}
+
         {loading && (
           <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-400 animate-pulse text-sm">
             Loading data timelines...
           </div>
         )}
 
-        {!loading && Object.keys(data).length === 0 && (
-          <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-400 text-sm">
-            No collections recorded for this timeline.
-          </div>
-        )}
+        {/* =====================================================
+            EMPTY
+        ====================================================== */}
 
-        {/* Layout Wrapper when Data Exists */}
-        {!loading && Object.keys(data).length > 0 && (
-          <>
-            {/* 1. MOBILE CARDS LIST (Hidden on tablets/desktop) */}
-            <div className="block md:hidden space-y-3">
-              {Object.entries(data).map(([dueDate, row], index) => {
-                const totalCollected = (row.cash || 0) + (row.upi || 0);
-                const isEditing = editingRowId === dueDate;
-
-                return (
-                  <div key={dueDate}
-                 className="bg-white border border-gray-200 rounded-xl p-4 shadow-xs space-y-3">
-                    <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-                      <span className="text-xs font-bold text-gray-400 uppercase">{getDayLabel(dueDate, index)}</span>
-                      <span className="text-sm font-medium text-gray-700 hover:text-blue-700 cursor-pointer"   onClick={()=>{router.push(`${salesmanIdParam}/${dueDate}`)}}>{formatDate(dueDate)}</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                      <div className="flex justify-between border-b border-dotted border-gray-100 pb-1">
-                        <span className="text-gray-400">Cash:</span>
-                        <span className="font-mono font-medium">₹{(row.cash || 0).toLocaleString("en-IN")}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-dotted border-gray-100 pb-1">
-                        <span className="text-gray-400">UPI:</span>
-                        <span className="font-mono font-medium">₹{(row.upi || 0).toLocaleString("en-IN")}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-dotted border-gray-100 pb-1">
-                        <span className="text-gray-400">Expected:</span>
-                        <span className="font-mono font-medium text-gray-600">₹{(row.expected || 0).toLocaleString("en-IN")}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-dotted border-gray-100 pb-1">
-                        <span className="text-green-600 font-semibold">Collected:</span>
-                        <span className="font-mono font-bold text-green-700">₹{totalCollected.toLocaleString("en-IN")}</span>
-                      </div>
-                    </div>
-
-                    {/* Mobile Dynamic Editing Field */}
-                    <div className="bg-indigo-50/30 rounded-lg p-2.5 border border-indigo-100/50 mt-1">
-                      {isEditing ? (
-                        <div className="flex items-center gap-2">
-                          <div className="relative flex-1">
-                            <span className="absolute left-2.5 top-2 text-gray-400 text-xs font-semibold">₹</span>
-                            <input
-                              type="number"
-                              min="0"
-                              value={tempInputValue}
-                              onChange={(e) => setTempInputValue(e.target.value)}
-                              className="w-full pl-6 pr-2 py-1.5 text-sm bg-white border border-gray-300 rounded-md text-right font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                              autoFocus
-                            />
-                          </div>
-                          <button onClick={() => saveRowAmount(dueDate)} className="px-3 py-1.5 text-xs bg-indigo-600 text-white font-medium rounded-md shadow-xs hover:bg-indigo-700">Save</button>
-                          <button onClick={cancelEditing} className="px-2.5 py-1.5 text-xs bg-gray-200 text-gray-600 font-medium rounded-md hover:bg-gray-300">✕</button>
-                        </div>
-                      ) : (
-                        <div className="flex justify-between items-center px-1">
-                          <span className="text-xs font-semibold text-indigo-900">Taken Amount:</span>
-                          <div className="flex items-center gap-3">
-                            <span className="font-bold font-mono text-indigo-950 text-sm">₹{(row.taken || 0).toLocaleString("en-IN")}</span>
-                            <button onClick={() => startEditing(dueDate, row.taken || 0)} className="text-xs font-bold text-indigo-600 bg-white border border-indigo-200 px-2.5 py-1 rounded-md shadow-xs hover:bg-indigo-50">Edit</button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+        {!loading &&
+          Object.keys(data).length === 0 && (
+            <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-400 text-sm">
+              No collections recorded for this timeline.
             </div>
+          )}
 
-            {/* 2. DESKTOP LEDGER TABLE (Hidden on small screens) */}
-            <div className="hidden md:block bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-gray-300 border-b border-gray-200 text-xs font-bold text-gray-600 uppercase tracking-wider">
-                      <th className="px-6 py-4">Day</th>
-                      <th className="px-6 py-4">Due Date</th>
-                      <th className="px-6 py-4 text-right">Cash</th>
-                      <th className="px-6 py-4 text-right">UPI</th>
-                      <th className="px-6 py-4 text-right">Total Collected</th>
-                      <th className="px-6 py-4 text-right">Total Expected</th>
-                      <th className="px-6 py-4 text-center w-64 bg-indigo-50/40 text-indigo-900 border-x border-gray-200">Taken Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 text-sm">
-                    {Object.entries(data).map(([dueDate, row], index) => {
-                      const totalCollected = (row.cash || 0) + (row.upi || 0);
-                      const isEditing = editingRowId === dueDate;
+        {/* =====================================================
+            DATA
+        ====================================================== */}
 
-                      return (
-                        <tr key={dueDate}
-                       className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 font-semibold text-gray-500">
-                            {getDayLabel(dueDate, index)}
-                          </td>
-                          <td className="px-6 py-4 hover:text-blue-600 cursor-pointer"   onClick={()=>{router.push(`${salesmanIdParam}/${dueDate}`)}}>
-                            {formatDate(dueDate)}
-                          </td>
-                          <td className="px-6 py-4 text-right font-mono">₹{(row.cash || 0).toLocaleString("en-IN")}</td>
-                          <td className="px-6 py-4 text-right font-mono">₹{(row.upi || 0).toLocaleString("en-IN")}</td>
-                          <td className="px-6 py-4 text-right text-green-700 font-semibold font-mono">₹{totalCollected.toLocaleString("en-IN")}</td>
-                          <td className="px-6 py-4 text-right font-semibold font-mono text-gray-600">₹{(row.expected || 0).toLocaleString("en-IN")}</td>
-                          
-                          {/* Interactive Taken Amount Column */}
-                          <td className="px-4 py-3 bg-indigo-50/20 border-x">
-                            {isEditing ? (
-                              <div className="flex items-center gap-2">
-                                <div className="relative flex-1">
-                                  <span className="absolute left-2 top-1.5 text-gray-400 text-xs font-semibold">₹</span>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={tempInputValue}
-                                    onChange={(e) => setTempInputValue(e.target.value)}
-                                    className="w-full pl-6 pr-2 py-1 text-sm border bg-white rounded text-right font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                    autoFocus
-                                  />
-                                </div>
-                                <button onClick={() => saveRowAmount(dueDate)} className="px-3 py-1 text-xs bg-indigo-600 text-white font-medium rounded hover:bg-indigo-700 transition">Save</button>
-                                <button onClick={cancelEditing} className="px-2 py-1 text-xs bg-gray-200 text-gray-600 font-medium rounded hover:bg-gray-300 transition">✕</button>
-                              </div>
-                            ) : (
-                              <div className="flex justify-between items-center px-2">
-                                <span className="font-semibold font-mono text-indigo-950">₹{(row.taken || 0).toLocaleString("en-IN")}</span>
-                                <button onClick={() => startEditing(dueDate, row.taken || 0)} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline transition">Edit</button>
-                              </div>
+        {!loading &&
+          Object.keys(data).length > 0 && (
+            <>
+
+              {/* =================================================
+                  MOBILE
+              ================================================== */}
+
+              <div className="block md:hidden space-y-3">
+
+                {Object.entries(data).map(
+                  ([dueDate, row], index) => {
+
+                    const totalCollected =
+                      Number(row.cash || 0) +
+                      Number(row.upi || 0);
+
+                    const isEditing =
+                      editingRowId ===
+                      dueDate;
+
+                    return (
+                      <div
+                        key={dueDate}
+                        className="bg-white border border-gray-200 rounded-xl p-4 shadow-xs space-y-3"
+                      >
+
+                        {/* DATE HEADER */}
+
+                        <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+
+                          <div className="flex items-center gap-2">
+
+                            <span className="text-xs font-bold text-gray-400 uppercase">
+                              {getDayLabel(
+                                dueDate,
+                                index
+                              )}
+                            </span>
+
+                            {/* HIDE */}
+
+                            {canHideEmiDate(dueDate) && (
+                              <button
+                                disabled={
+                                  hidingRow ===
+                                  dueDate
+                                }
+                                onClick={() =>
+                                  hideDate(
+                                    dueDate
+                                  )
+                                }
+                                className="w-7 h-7 flex items-center justify-center rounded-md bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition disabled:opacity-50"
+                                title="Hide this date"
+                              >
+                                {hidingRow ===
+                                dueDate
+                                  ? "..."
+                                  : "🗑️"}
+                              </button>
                             )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+
+                          </div>
+
+                          <span
+                            className="text-sm font-medium text-gray-700 hover:text-blue-700 cursor-pointer"
+                            onClick={() =>
+                              router.push(
+                                `${salesmanIdParam}/${dueDate}`
+                              )
+                            }
+                          >
+                            {formatDate(
+                              dueDate
+                            )}
+                          </span>
+
+                        </div>
+
+                        {/* VALUES */}
+
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+
+                          {/* CASH */}
+
+                          <div className="flex justify-between border-b border-dotted border-gray-100 pb-1">
+
+                            <span className="text-gray-400">
+                              Cash:
+                            </span>
+
+                            <span className="font-mono font-medium">
+                              ₹
+                              {Number(
+                                row.cash || 0
+                              ).toLocaleString(
+                                "en-IN"
+                              )}
+                            </span>
+
+                          </div>
+
+                          {/* UPI */}
+
+                          <div className="flex justify-between border-b border-dotted border-gray-100 pb-1">
+
+                            <span className="text-gray-400">
+                              UPI:
+                            </span>
+
+                            <span className="font-mono font-medium">
+                              ₹
+                              {Number(
+                                row.upi || 0
+                              ).toLocaleString(
+                                "en-IN"
+                              )}
+                            </span>
+
+                          </div>
+
+                          {/* EXPECTED */}
+
+                          <div className="flex justify-between border-b border-dotted border-gray-100 pb-1">
+
+                            <span className="text-gray-400">
+                              Expected:
+                            </span>
+
+                            <span className="font-mono font-medium text-gray-600">
+                              ₹
+                              {Number(
+                                row.expected || 0
+                              ).toLocaleString(
+                                "en-IN"
+                              )}
+                            </span>
+
+                          </div>
+
+                          {/* COLLECTED */}
+
+                          <div className="flex justify-between border-b border-dotted border-gray-100 pb-1">
+
+                            <span className="text-green-600 font-semibold">
+                              Collected:
+                            </span>
+
+                            <span className="font-mono font-bold text-green-700">
+                              ₹
+                              {totalCollected.toLocaleString(
+                                "en-IN"
+                              )}
+                            </span>
+
+                          </div>
+
+                        </div>
+
+                        {/* TAKEN */}
+
+                        <div className="bg-indigo-50/30 rounded-lg p-2.5 border border-indigo-100/50 mt-1">
+
+                          {isEditing ? (
+
+                            <div className="flex items-center gap-2">
+
+                              <div className="relative flex-1">
+
+                                <span className="absolute left-2.5 top-2 text-gray-400 text-xs font-semibold">
+                                  ₹
+                                </span>
+
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={
+                                    tempInputValue
+                                  }
+                                  onChange={(e) =>
+                                    setTempInputValue(
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full pl-6 pr-2 py-1.5 text-sm bg-white border border-gray-300 rounded-md text-right font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  autoFocus
+                                />
+
+                              </div>
+
+                              <button
+                                onClick={() =>
+                                  saveRowAmount(
+                                    dueDate
+                                  )
+                                }
+                                className="px-3 py-1.5 text-xs bg-indigo-600 text-white font-medium rounded-md shadow-xs hover:bg-indigo-700"
+                              >
+                                Save
+                              </button>
+
+                              <button
+                                onClick={
+                                  cancelEditing
+                                }
+                                className="px-2.5 py-1.5 text-xs bg-gray-200 text-gray-600 font-medium rounded-md hover:bg-gray-300"
+                              >
+                                ✕
+                              </button>
+
+                            </div>
+
+                          ) : (
+
+                            <div className="flex justify-between items-center px-1">
+
+                              <span className="text-xs font-semibold text-indigo-900">
+                                Taken Amount:
+                              </span>
+
+                              <div className="flex items-center gap-3">
+
+                                <span className="font-bold font-mono text-indigo-950 text-sm">
+                                  ₹
+                                  {Number(
+                                    row.taken || 0
+                                  ).toLocaleString(
+                                    "en-IN"
+                                  )}
+                                </span>
+
+                                <button
+                                  onClick={() =>
+                                    startEditing(
+                                      dueDate,
+                                      row.taken ||
+                                        0
+                                    )
+                                  }
+                                  className="text-xs font-bold text-indigo-600 bg-white border border-indigo-200 px-2.5 py-1 rounded-md shadow-xs hover:bg-indigo-50"
+                                >
+                                  Edit
+                                </button>
+
+                              </div>
+
+                            </div>
+
+                          )}
+
+                        </div>
+
+                      </div>
+                    );
+                  }
+                )}
+
               </div>
-            </div>
-          </>
-        )}
+
+              {/* =================================================
+                  DESKTOP
+              ================================================== */}
+
+              <div className="hidden md:block bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs">
+
+                <div className="overflow-x-auto">
+
+                  <table className="w-full text-left border-collapse">
+
+                    <thead>
+
+                      <tr className="bg-gray-300 border-b border-gray-200 text-xs font-bold text-gray-600 uppercase tracking-wider">
+
+                        <th className="px-6 py-4">
+                          Day
+                        </th>
+
+                        <th className="px-6 py-4">
+                          Due Date
+                        </th>
+
+                        <th className="px-6 py-4 text-right">
+                          Cash
+                        </th>
+
+                        <th className="px-6 py-4 text-right">
+                          UPI
+                        </th>
+
+                        <th className="px-6 py-4 text-right">
+                          Total Collected
+                        </th>
+
+                        <th className="px-6 py-4 text-right">
+                          Total Expected
+                        </th>
+
+                        <th className="px-6 py-4 text-center w-64 bg-indigo-50/40 text-indigo-900 border-x border-gray-200">
+                          Taken Amount
+                        </th>
+
+                        <th className="px-4 py-4 text-center w-16">
+                          Hide
+                        </th>
+
+                      </tr>
+
+                    </thead>
+
+                    <tbody className="divide-y divide-gray-100 text-sm">
+
+                      {Object.entries(data).map(
+                        ([dueDate, row], index) => {
+
+                          const totalCollected =
+                            Number(row.cash || 0) +
+                            Number(row.upi || 0);
+
+                          const isEditing =
+                            editingRowId ===
+                            dueDate;
+
+                          return (
+                            <tr
+                              key={dueDate}
+                              className="hover:bg-gray-50 transition-colors"
+                            >
+
+                              {/* DAY */}
+
+                              <td className="px-6 py-4 font-semibold text-gray-500">
+
+                                {getDayLabel(
+                                  dueDate,
+                                  index
+                                )}
+
+                              </td>
+
+                              {/* DATE */}
+
+                              <td
+                                className="px-6 py-4 hover:text-blue-600 cursor-pointer"
+                                onClick={() =>
+                                  router.push(
+                                    `${salesmanIdParam}/${dueDate}`
+                                  )
+                                }
+                              >
+                                {formatDate(
+                                  dueDate
+                                )}
+                              </td>
+
+                              {/* CASH */}
+
+                              <td className="px-6 py-4 text-right font-mono">
+
+                                ₹
+                                {Number(
+                                  row.cash || 0
+                                ).toLocaleString(
+                                  "en-IN"
+                                )}
+
+                              </td>
+
+                              {/* UPI */}
+
+                              <td className="px-6 py-4 text-right font-mono">
+
+                                ₹
+                                {Number(
+                                  row.upi || 0
+                                ).toLocaleString(
+                                  "en-IN"
+                                )}
+
+                              </td>
+
+                              {/* TOTAL COLLECTED */}
+
+                              <td className="px-6 py-4 text-right text-green-700 font-semibold font-mono">
+
+                                ₹
+                                {totalCollected.toLocaleString(
+                                  "en-IN"
+                                )}
+
+                              </td>
+
+                              {/* EXPECTED */}
+
+                              <td className="px-6 py-4 text-right font-semibold font-mono text-gray-600">
+
+                                ₹
+                                {Number(
+                                  row.expected || 0
+                                ).toLocaleString(
+                                  "en-IN"
+                                )}
+
+                              </td>
+
+                              {/* TAKEN */}
+
+                              <td className="px-4 py-3 bg-indigo-50/20 border-x">
+
+                                {isEditing ? (
+
+                                  <div className="flex items-center gap-2">
+
+                                    <div className="relative flex-1">
+
+                                      <span className="absolute left-2 top-1.5 text-gray-400 text-xs font-semibold">
+                                        ₹
+                                      </span>
+
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        value={
+                                          tempInputValue
+                                        }
+                                        onChange={(e) =>
+                                          setTempInputValue(
+                                            e.target.value
+                                          )
+                                        }
+                                        className="w-full pl-6 pr-2 py-1 text-sm border bg-white rounded text-right font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        autoFocus
+                                      />
+
+                                    </div>
+
+                                    <button
+                                      onClick={() =>
+                                        saveRowAmount(
+                                          dueDate
+                                        )
+                                      }
+                                      className="px-3 py-1 text-xs bg-indigo-600 text-white font-medium rounded hover:bg-indigo-700 transition"
+                                    >
+                                      Save
+                                    </button>
+
+                                    <button
+                                      onClick={
+                                        cancelEditing
+                                      }
+                                      className="px-2 py-1 text-xs bg-gray-200 text-gray-600 font-medium rounded hover:bg-gray-300 transition"
+                                    >
+                                      ✕
+                                    </button>
+
+                                  </div>
+
+                                ) : (
+
+                                  <div className="flex justify-between items-center px-2">
+
+                                    <span className="font-semibold font-mono text-indigo-950">
+                                      ₹
+                                      {Number(
+                                        row.taken || 0
+                                      ).toLocaleString(
+                                        "en-IN"
+                                      )}
+                                    </span>
+
+                                    <button
+                                      onClick={() =>
+                                        startEditing(
+                                          dueDate,
+                                          row.taken ||
+                                            0
+                                        )
+                                      }
+                                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline transition"
+                                    >
+                                      Edit
+                                    </button>
+
+                                  </div>
+
+                                )}
+
+                              </td>
+
+                              {/* HIDE */}
+
+                              <td className="px-4 py-3 text-center">
+
+                                {canHideEmiDate(dueDate) && (
+                                  <button
+                                    disabled={
+                                      hidingRow ===
+                                      dueDate
+                                    }
+                                    onClick={() =>
+                                      hideDate(
+                                        dueDate
+                                      )
+                                    }
+                                    className="w-8 h-8 inline-flex items-center justify-center rounded-md bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 hover:text-red-700 transition disabled:opacity-50"
+                                    title="Hide this date"
+                                  >
+                                    {hidingRow ===
+                                    dueDate
+                                      ? "..."
+                                      : "🗑️"}
+                                  </button>
+                                )}
+
+                              </td>
+
+                            </tr>
+                          );
+                        }
+                      )}
+
+                    </tbody>
+
+                  </table>
+
+                </div>
+
+              </div>
+
+            </>
+          )}
 
       </div>
     </div>

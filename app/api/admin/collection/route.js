@@ -7,6 +7,7 @@ export async function GET() {
   try {
     // 1. Session & Admin Authorization Checks
     const session = await getServerSession(authOptions);
+
     if (!session || session?.user?.email !== "admin@Goldy") {
       return NextResponse.json(
         { message: "Unauthorized" },
@@ -14,72 +15,119 @@ export async function GET() {
       );
     }
 
-    // 2. Database Connection
+    // 2. Setup Current Month Date Range
+    const now = new Date();
+
+    const startOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1
+    );
+
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
+
+    // 3. Database Connection
     const client = await clientPromise;
     const db = client.db(process.env.MONGODB_DB);
 
-    // Filter updated to cleanly fetch active/non-removed records
-    const loans = await db.collection("loans").find({ removeMark: { $ne: true } }).toArray();
+    // --------------------------------------------------
+    // Fetch ONLY ACTIVE and NON-REMOVED loans
+    // --------------------------------------------------
+    const loans = await db
+      .collection("loans")
+      .find({
+        status: "Active",
+        removeMark: { $ne: true },
+      })
+      .toArray();
 
-    // Overall stats counters
+    // Fetch collections for current month
+    const collections = await db
+      .collection("collections")
+      .find({
+        date: {
+          $gte: startOfMonth,
+          $lte: endOfMonth,
+        },
+      })
+      .toArray();
+
+    // --------------------------------------------------
+    // Overall monthly stats
+    // --------------------------------------------------
     let cashAmount = 0;
     let upiAmount = 0;
     let cashCount = 0;
     let upiCount = 0;
 
+    let totalExpected = 0;
+    let previousMonthDue = 0;
+
     const transactions = [];
 
-    // Initialize map structures for date-specific aggregation dynamically
+    // --------------------------------------------------
+    // Date-specific aggregation
+    // --------------------------------------------------
     const allowedDays = ["1", "11", "21"];
+
     const dateStatsMap = {};
     const loanCountMap = {};
-    // NEW: Track collections per allowed day
     const dateCollectionsMap = {};
 
     allowedDays.forEach((day) => {
       loanCountMap[day] = 0;
-      dateCollectionsMap[day] = { amount: 0, count: 0 }; // Initialize for breakdown
+
+      dateCollectionsMap[day] = {
+        amount: 0,
+        count: 0,
+      };
+
       dateStatsMap[day] = {
         cashAmount: 0,
         cashCount: 0,
         upiAmount: 0,
         upiCount: 0,
+        expectedAmount: 0,
+        previousMonthDue: 0,
       };
     });
 
-    const collections = await db.collection("collections").find().toArray();
-
     let totalPaidAmount = 0;
     let totalTaken = 0;
-    let totalTakenCount = 0;
 
-    // Total paid by customers (from loans)
-    loans.forEach((loan) => {
-      totalPaidAmount += Number(loan.totalPaid || 0);
-    });
-
-    // Total taken/collected (from collections) + Dynamic Day Breakdowns
+    // --------------------------------------------------
+    // Current month collections
+    // --------------------------------------------------
     collections.forEach((item) => {
       const amount = Number(item.amount || 0);
+
       totalTaken += amount;
-      
-      // Map collection item to its respective day (e.g., matching "1", "11", or "21")
-      // NOTE: Change 'item.emiDate' to match whatever field stores the day in your collection schema
-      const collectionDayStr = String(item.emiDate || ""); 
-      
+
+      const collectionDayStr = String(item.emiDate || "");
+
       if (allowedDays.includes(collectionDayStr)) {
         dateCollectionsMap[collectionDayStr].amount += amount;
         dateCollectionsMap[collectionDayStr].count += 1;
       }
     });
 
-    totalTakenCount = collections.length;
+    const totalTakenCount = collections.length;
 
-    // 3. Single-Pass Execution ($O(N)$ efficiency)
+    // --------------------------------------------------
+    // Process ACTIVE loans and their payments
+    // --------------------------------------------------
     loans.forEach((loan) => {
       const loanDayStr = String(loan.emiDate);
-      
-      // If this loan falls under the tracked target days, increment count
+
+      // Count active loans for 1, 11 and 21
       if (allowedDays.includes(loanDayStr)) {
         loanCountMap[loanDayStr]++;
       }
@@ -87,37 +135,71 @@ export async function GET() {
       if (!Array.isArray(loan.payments)) return;
 
       loan.payments.forEach((payment) => {
-        // Only target processed "Paid" EMIs
-        if (payment.status !== "Paid" || payment.removeMark) return;
+        // Ignore removed payments
+        if (payment.removeMark) return;
 
-        // Calculate combined payment amount (Base Amount + Fine if paid)
-        let amount = Number(payment.amount || 0);
-        if (payment.finePaid) {
-          amount += Number(payment.fine || 0);
-        }
+        const baseAmount = Number(payment.amount || 0);
 
-        // Aggregate Globally
-        if (payment.paymentMode === "Cash") {
-          cashAmount += amount;
-          cashCount++;
-        } else if (payment.paymentMode === "UPI") {
-          upiAmount += amount;
-          upiCount++;
-        }
+        const dueDateObj = payment.dueDate
+          ? new Date(payment.dueDate)
+          : null;
 
-        // Aggregate on targeted date metrics simultaneously (removes nested loops entirely)
-        if (allowedDays.includes(loanDayStr)) {
-          const targetDayData = dateStatsMap[loanDayStr];
-          if (payment.paymentMode === "Cash") {
-            targetDayData.cashAmount += amount;
-            targetDayData.cashCount++;
-          } else if (payment.paymentMode === "UPI") {
-            targetDayData.upiAmount += amount;
-            targetDayData.upiCount++;
+        const paidDateObj = payment.paidDate
+          ? new Date(payment.paidDate)
+          : null;
+
+        // --------------------------------------------------
+        // A. CURRENT MONTH EXPECTED
+        // --------------------------------------------------
+        if (
+          dueDateObj &&
+          dueDateObj >= startOfMonth &&
+          dueDateObj <= endOfMonth
+        ) {
+          totalExpected += baseAmount;
+
+          if (allowedDays.includes(loanDayStr)) {
+            dateStatsMap[loanDayStr].expectedAmount += baseAmount;
           }
         }
 
-        // Restructure transaction log schema mapping
+        // --------------------------------------------------
+        // B. PREVIOUS MONTH DUE
+        // --------------------------------------------------
+        if (
+          dueDateObj &&
+          dueDateObj < startOfMonth
+        ) {
+          const isUnpaid = payment.status !== "Paid";
+
+          const paidAfterStartOfMonth =
+            paidDateObj &&
+            paidDateObj >= startOfMonth;
+
+          if (isUnpaid || paidAfterStartOfMonth) {
+            previousMonthDue += baseAmount;
+
+            if (allowedDays.includes(loanDayStr)) {
+              dateStatsMap[loanDayStr].previousMonthDue += baseAmount;
+            }
+          }
+        }
+
+        // --------------------------------------------------
+        // Only paid payments below this point
+        // --------------------------------------------------
+        if (payment.status !== "Paid") return;
+
+        // Base amount + fine
+        let totalPaidWithFine = baseAmount;
+
+        if (payment.finePaid) {
+          totalPaidWithFine += Number(payment.fine || 0);
+        }
+
+        // --------------------------------------------------
+        // C. TRANSACTIONS
+        // --------------------------------------------------
         transactions.push({
           loanId: loan._id,
           customerId: loan.customerId,
@@ -125,56 +207,142 @@ export async function GET() {
           mobile: loan.mobile,
           productName: loan.productName,
           salesmanName: loan.salesmanName,
-          emiDate: loan.emiDate, 
+          emiDate: loan.emiDate,
           emiNo: payment.emiNo,
           amount: payment.amount,
           fine: payment.fine || 0,
-          totalAmount: amount,
+          totalAmount: totalPaidWithFine,
           paymentMode: payment.paymentMode,
           paidDate: payment.paidDate,
           dueDate: payment.dueDate,
           remarks: payment.remarks || "",
         });
+
+        // --------------------------------------------------
+        // D. CURRENT MONTH PAID STATS
+        // --------------------------------------------------
+        if (
+          !paidDateObj ||
+          paidDateObj < startOfMonth ||
+          paidDateObj > endOfMonth
+        ) {
+          return;
+        }
+
+        totalPaidAmount += totalPaidWithFine;
+
+        // Cash
+        if (payment.paymentMode === "Cash") {
+          cashAmount += totalPaidWithFine;
+          cashCount++;
+        }
+
+        // UPI
+        else if (payment.paymentMode === "UPI") {
+          upiAmount += totalPaidWithFine;
+          upiCount++;
+        }
+
+        // --------------------------------------------------
+        // Day-specific paid stats
+        // --------------------------------------------------
+        if (allowedDays.includes(loanDayStr)) {
+          const targetDayData = dateStatsMap[loanDayStr];
+
+          if (payment.paymentMode === "Cash") {
+            targetDayData.cashAmount += totalPaidWithFine;
+            targetDayData.cashCount++;
+          }
+
+          else if (payment.paymentMode === "UPI") {
+            targetDayData.upiAmount += totalPaidWithFine;
+            targetDayData.upiCount++;
+          }
+        }
       });
     });
 
-    // 4. Chronological Sort (Latest payments first)
-    transactions.sort((a, b) => new Date(b.paidDate) - new Date(a.paidDate));
+    // --------------------------------------------------
+    // Sort transactions - newest first
+    // --------------------------------------------------
+    transactions.sort(
+      (a, b) =>
+        new Date(b.paidDate) - new Date(a.paidDate)
+    );
 
-    // 5. Structure the requested `dates` arrays output dynamically
+    // --------------------------------------------------
+    // Build dates array
+    // --------------------------------------------------
     const dates = allowedDays.map((day) => {
       const metrics = dateStatsMap[day];
-      const collectionMetrics = dateCollectionsMap[day]; // Extract day-specific collection numbers
-      
+      const collectionMetrics = dateCollectionsMap[day];
+
       return {
         day,
+
+        // Only ACTIVE loan count
         loanCount: loanCountMap[day],
+
+        // Expected from ACTIVE loans
+        expectedAmount: metrics.expectedAmount,
+
+        previousMonthDue: metrics.previousMonthDue,
+
         cashAmount: metrics.cashAmount,
         cashCount: metrics.cashCount,
+
         upiAmount: metrics.upiAmount,
         upiCount: metrics.upiCount,
-        totalAmount: metrics.cashAmount + metrics.upiAmount,
-        totalPayments: metrics.cashCount + metrics.upiCount,
-        totalTaken: collectionMetrics.amount,       // <-- Added day specific total taken
-        totalTakenCount: collectionMetrics.count,   // <-- Added day specific count
+
+        totalAmount:
+          metrics.cashAmount +
+          metrics.upiAmount,
+
+        totalPayments:
+          metrics.cashCount +
+          metrics.upiCount,
+
+        totalTaken: collectionMetrics.amount,
+        totalTakenCount: collectionMetrics.count,
       };
     });
 
-    // 6. Final API Payload
+    // --------------------------------------------------
+    // Final API response
+    // --------------------------------------------------
     return NextResponse.json({
       success: true,
+
+      currentMonth: now.toLocaleString("default", {
+        month: "long",
+        year: "numeric",
+      }),
+
       stats: {
-        cash: { amount: cashAmount, count: cashCount },
-        upi: { amount: upiAmount, count: upiCount },
+        totalExpected,
+        previousMonthDue,
+        totalPaidAmount,
         totalTaken,
-        totalTakenCount
+        totalTakenCount,
+
+        cash: {
+          amount: cashAmount,
+          count: cashCount,
+        },
+
+        upi: {
+          amount: upiAmount,
+          count: upiCount,
+        },
       },
+
       transactions,
       dates,
     });
 
   } catch (error) {
     console.error("API Error:", error);
+
     return NextResponse.json(
       {
         success: false,
